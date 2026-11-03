@@ -252,12 +252,23 @@ def api_delete():
         response.status = 500
         return {"error": str(e)}
 
-PAK_DIR = BASE_DIR / "client_pak" / "ThaiRomStore.pak"
+def get_pak_dir():
+    candidates = [
+        BASE_DIR / "client_pak" / "ThaiRomStore.pak",
+        BASE_DIR.parent / "1. SDCard-TrimUI" / "Tools" / "tg5040" / "ThaiRomStore.pak",
+        BASE_DIR.parent / "client_pak" / "ThaiRomStore.pak",
+        BASE_DIR / "ThaiRomStore.pak",
+    ]
+    for c in candidates:
+        if c.exists() and (c / "pak.json").exists():
+            return c
+    return candidates[0]
 
 @app.route('/api/app/version')
 def api_app_version():
-    pak_json_file = PAK_DIR / "pak.json"
-    ver_str = "1.2.0"
+    pak_dir = get_pak_dir()
+    pak_json_file = pak_dir / "pak.json"
+    ver_str = "1.2.6"
     if pak_json_file.exists():
         try:
             with open(pak_json_file, 'r', encoding='utf-8') as pf:
@@ -266,7 +277,7 @@ def api_app_version():
         except Exception:
             pass
             
-    elf_file = PAK_DIR / "bin" / "store.elf"
+    elf_file = pak_dir / "bin" / "store.elf"
     build_time = ""
     if elf_file.exists():
         import datetime
@@ -276,20 +287,23 @@ def api_app_version():
     return {
         "version": ver_str,
         "build_time": build_time,
-        "changelog": "v1.2.5: เพิ่ม Numpad กรอก IP, บันทึก IP ทันที, อัปเกรด Auto-Scan รวดเร็วทุกวงแลน, และล้างแคชเก่า"
+        "changelog": "v1.2.6: รองรับ OTA จาก GitHub โดยตรง, ปรับปรุงหน้าจอคลังเกมว่างให้แสดงสถานะเชื่อมต่อถูกต้อง, อัปเกรดความเสถียร"
     }
 
 @app.route('/api/app/latest/store.elf')
 def api_latest_store_elf():
-    return static_file("store.elf", root=str(PAK_DIR / "bin"), download=True)
+    pak_dir = get_pak_dir()
+    return static_file("store.elf", root=str(pak_dir / "bin"), download=True)
 
 @app.route('/api/app/latest/launch.sh')
 def api_latest_launch_sh():
-    return static_file("launch.sh", root=str(PAK_DIR), download=True)
+    pak_dir = get_pak_dir()
+    return static_file("launch.sh", root=str(pak_dir), download=True)
 
 @app.route('/api/app/latest/autoscan.sh')
 def api_latest_autoscan_sh():
-    return static_file("autoscan.sh", root=str(PAK_DIR / "bin"), download=True)
+    pak_dir = get_pak_dir()
+    return static_file("autoscan.sh", root=str(pak_dir / "bin"), download=True)
 
 if __name__ == '__main__':
     print("=" * 60)

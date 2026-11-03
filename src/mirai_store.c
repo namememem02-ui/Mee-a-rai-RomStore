@@ -23,7 +23,7 @@
 
 #define MAX_GAMES 1000
 #define ROWS_PER_PAGE 6
-#define APP_VERSION "1.2.5"
+#define APP_VERSION "1.2.6"
 
 // Colors (ARGB 32-bit: 0xAARRGGBB)
 #define COLOR_BG          0xFF0B0F19
@@ -638,61 +638,6 @@ static void apply_filter(void) {
     g_top_index = (g_selected_index / ROWS_PER_PAGE) * ROWS_PER_PAGE;
 }
 
-// Load catalog from /tmp/catalog.txt
-static void load_catalog(void) {
-    FILE *f = fopen("/tmp/catalog.txt", "r");
-    if (!f) {
-        g_game_count = 0;
-        apply_filter();
-        return;
-    }
-    char line[1024];
-    g_game_count = 0;
-    while (fgets(line, sizeof(line), f) && g_game_count < MAX_GAMES) {
-        char *nl = strchr(line, '\r'); if (nl) *nl = '\0';
-        nl = strchr(line, '\n'); if (nl) *nl = '\0';
-        if (strlen(line) == 0) continue;
-
-        // Parse: system|filename|title|has_cover|rom_url|cover_url|size_mb|is_thai
-        char *tok = strtok(line, "|");
-        if (!tok) continue;
-        strncpy(g_games[g_game_count].system, tok, sizeof(g_games[0].system) - 1);
-
-        tok = strtok(NULL, "|"); if (!tok) continue;
-        strncpy(g_games[g_game_count].filename, tok, sizeof(g_games[0].filename) - 1);
-
-        tok = strtok(NULL, "|"); if (!tok) continue;
-        strncpy(g_games[g_game_count].title, tok, sizeof(g_games[0].title) - 1);
-
-        tok = strtok(NULL, "|"); if (!tok) continue; // has_cover
-
-        tok = strtok(NULL, "|"); if (!tok) continue;
-        strncpy(g_games[g_game_count].rom_url, tok, sizeof(g_games[0].rom_url) - 1);
-
-        tok = strtok(NULL, "|"); if (!tok) continue;
-        strncpy(g_games[g_game_count].cover_url, tok, sizeof(g_games[0].cover_url) - 1);
-
-        tok = strtok(NULL, "|"); if (!tok) continue;
-        strncpy(g_games[g_game_count].size_mb, tok, sizeof(g_games[0].size_mb) - 1);
-
-        tok = strtok(NULL, "|"); if (!tok) continue;
-        g_games[g_game_count].is_thai = atoi(tok);
-
-        g_games[g_game_count].installed = check_rom_installed(g_games[g_game_count].system, g_games[g_game_count].filename);
-        g_game_count++;
-    }
-    fclose(f);
-    g_connected = (g_game_count > 0);
-    if (g_game_count == 0) {
-        if (g_cover_pixels) {
-            free(g_cover_pixels);
-            g_cover_pixels = NULL;
-        }
-        g_cover_loaded_index = -1;
-    }
-    apply_filter();
-}
-
 // Test server connection via /api/info
 static bool test_server_connection(const char *url) {
     if (!url || strlen(url) == 0) return false;
@@ -714,19 +659,74 @@ static bool test_server_connection(const char *url) {
     return false;
 }
 
+// Load catalog from /tmp/catalog.txt
+static void load_catalog(void) {
+    FILE *f = fopen("/tmp/catalog.txt", "r");
+    g_game_count = 0;
+    if (f) {
+        char line[1024];
+        while (fgets(line, sizeof(line), f) && g_game_count < MAX_GAMES) {
+            char *nl = strchr(line, '\r'); if (nl) *nl = '\0';
+            nl = strchr(line, '\n'); if (nl) *nl = '\0';
+            if (strlen(line) == 0) continue;
+
+            // Parse: system|filename|title|has_cover|rom_url|cover_url|size_mb|is_thai
+            char *tok = strtok(line, "|");
+            if (!tok) continue;
+            strncpy(g_games[g_game_count].system, tok, sizeof(g_games[0].system) - 1);
+
+            tok = strtok(NULL, "|"); if (!tok) continue;
+            strncpy(g_games[g_game_count].filename, tok, sizeof(g_games[0].filename) - 1);
+
+            tok = strtok(NULL, "|"); if (!tok) continue;
+            strncpy(g_games[g_game_count].title, tok, sizeof(g_games[0].title) - 1);
+
+            tok = strtok(NULL, "|"); if (!tok) continue; // has_cover
+
+            tok = strtok(NULL, "|"); if (!tok) continue;
+            strncpy(g_games[g_game_count].rom_url, tok, sizeof(g_games[0].rom_url) - 1);
+
+            tok = strtok(NULL, "|"); if (!tok) continue;
+            strncpy(g_games[g_game_count].cover_url, tok, sizeof(g_games[0].cover_url) - 1);
+
+            tok = strtok(NULL, "|"); if (!tok) continue;
+            strncpy(g_games[g_game_count].size_mb, tok, sizeof(g_games[0].size_mb) - 1);
+
+            tok = strtok(NULL, "|"); if (!tok) continue;
+            g_games[g_game_count].is_thai = atoi(tok);
+
+            g_games[g_game_count].installed = check_rom_installed(g_games[g_game_count].system, g_games[g_game_count].filename);
+            g_game_count++;
+        }
+        fclose(f);
+    }
+
+    if (g_game_count > 0) {
+        g_connected = true;
+    } else {
+        // Test if server is connected even if 0 games
+        g_connected = test_server_connection(g_server_url);
+        if (g_cover_pixels) {
+            free(g_cover_pixels);
+            g_cover_pixels = NULL;
+        }
+        g_cover_loaded_index = -1;
+    }
+    apply_filter();
+}
+
 // Sync catalog from server
 static bool sync_catalog_from_server(const char *url) {
     if (!url || strlen(url) == 0) return false;
     char cmd[512];
     unlink("/tmp/catalog.txt");
     snprintf(cmd, sizeof(cmd), "bin/curl -L -s -m 7 \"%s/api/catalog/sync\" -o /tmp/catalog.txt", url);
-    if (system(cmd) == 0) {
-        struct stat st;
-        if (stat("/tmp/catalog.txt", &st) == 0 && st.st_size > 10) {
-            load_catalog();
-            return (g_game_count > 0);
-        }
+    int res = system(cmd);
+    if (res == 0) {
+        load_catalog();
+        return g_connected;
     }
+    g_connected = false;
     return false;
 }
 
@@ -809,6 +809,78 @@ static void parse_ip_from_url(const char *url, int octets[4], int *port) {
     }
 }
 
+// Render Empty Store UI (Connected to PC Server, but 0 ROMs in storage)
+static void render_empty_store_ui(void) {
+    draw_rect(0, 0, g_screen_w, g_screen_h, COLOR_BG);
+
+    // Header Bar
+    draw_rect(0, 0, g_screen_w, 72, COLOR_PANEL);
+    draw_rect(0, 72, g_screen_w, 1, COLOR_CARD_BORDER);
+
+    if (g_mascot_pixels) {
+        draw_image_scaled(14, 8, 56, 56, g_mascot_pixels, g_mascot_w, g_mascot_h);
+    }
+    draw_text(82, 34, "THAI ROM STORE  v" APP_VERSION, 28.0f, COLOR_WHITE);
+    draw_text(82, 60, "Mirai Guild | Rushing Translation Edition", 16.0f, COLOR_CYAN);
+
+    // Status pill (Online / Connected)
+    int pill_w = 340;
+    int pill_x = g_screen_w - pill_w - 14;
+    draw_rounded_rect(pill_x, 15, pill_w, 42, 21, COLOR_GREEN_BG);
+    draw_rect_outline(pill_x, 15, pill_w, 42, COLOR_GREEN, 1);
+    draw_rounded_rect(pill_x + 18, 30, 10, 10, 5, COLOR_GREEN);
+    draw_text(pill_x + 36, 42, "เชื่อมต่อเซิร์ฟเวอร์ PC แล้ว", 17.0f, COLOR_GREEN);
+
+    // Center Dialog Box
+    int box_w = 820;
+    int box_h = 490;
+    int box_x = (g_screen_w - box_w) / 2;
+    int box_y = 105;
+
+    draw_rounded_rect(box_x, box_y, box_w, box_h, 16, COLOR_PANEL);
+    draw_rect_outline(box_x, box_y, box_w, box_h, COLOR_CARD_BORDER, 2);
+
+    draw_text(box_x + 40, box_y + 55, "เชื่อมต่อ PC สำเร็จ! แต่ยังไม่มีไฟล์เกมในคลัง", 26.0f, COLOR_WHITE);
+    draw_text(box_x + 40, box_y + 92, "ระบบเชื่อมต่อ Wi-Fi เรียบร้อยแล้ว กำลังรอคุณเพิ่มไฟล์เกมเข้าสู่ระบบ", 18.0f, COLOR_GRAY);
+
+    // Current URL Display Box
+    int ip_box_y = box_y + 115;
+    draw_rounded_rect(box_x + 40, ip_box_y, box_w - 80, 50, 10, COLOR_PANEL_ALT);
+    draw_rect_outline(box_x + 40, ip_box_y, box_w - 80, 50, COLOR_CARD_BORDER, 1);
+    char cur_str[256];
+    snprintf(cur_str, sizeof(cur_str), "PC Server:  %s  (สถานะ: ออนไลน์)", g_server_url);
+    draw_text(box_x + 55, ip_box_y + 34, cur_str, 20.0f, COLOR_CYAN);
+
+    // Instructions Box
+    int inst_box_y = ip_box_y + 65;
+    draw_rounded_rect(box_x + 40, inst_box_y, box_w - 80, 110, 10, COLOR_PANEL_ALT);
+    draw_rect_outline(box_x + 40, inst_box_y, box_w - 80, 110, COLOR_CARD_BORDER, 1);
+    draw_text(box_x + 55, inst_box_y + 30, "ขั้นตอนการลงเกม:", 18.0f, COLOR_AMBER);
+    draw_text(box_x + 55, inst_box_y + 60, "1. เปิดหน้าเว็บเบราว์เซอร์บนคอมพิวเตอร์ของคุณ", 17.0f, 0xFFE2E8F0);
+    draw_text(box_x + 55, inst_box_y + 90, "2. ลากไฟล์ ROM (.zip, .gba, .chd) และรูปปก วางลงในช่องเพื่อบันทึก", 17.0f, 0xFFE2E8F0);
+
+    // Action Prompts
+    int btn_w = box_w - 80;
+    int b1_y = inst_box_y + 125;
+    draw_rounded_rect(box_x + 40, b1_y, btn_w, 62, 12, COLOR_GREEN_BG);
+    draw_rect_outline(box_x + 40, b1_y, btn_w, 62, COLOR_GREEN, 2);
+    draw_text(box_x + 50, b1_y + 38, "[Y]  กดตรงนี้เพื่อรีเฟรชคลังเกม (ดึงเกมใหม่เข้าเครื่องทันที)", 21.0f, COLOR_GREEN);
+
+    draw_text(box_x + 40, box_y + box_h - 22, "* เมื่อเพิ่มเกมบนคอมพิวเตอร์เสร็จแล้ว ให้กดปุ่ม [Y] รายชื่อเกมจะปรากฏทันที", 16.0f, COLOR_GRAY);
+
+    // Footer Bar
+    int footer_h = 56;
+    int fy = g_screen_h - footer_h;
+    draw_rect(0, fy, g_screen_w, footer_h, COLOR_PANEL);
+    draw_rect(0, fy, g_screen_w, 1, COLOR_CARD_BORDER);
+
+    draw_text(24, fy + 36, "[Y] รีเฟรชคลังเกม", 18.0f, COLOR_GREEN);
+    draw_text(260, fy + 36, "[SELECT/A] เมนูตั้งค่า & OTA", 18.0f, COLOR_WHITE);
+    draw_text(g_screen_w - 230, fy + 36, "[B/MENU] ออกสู่ NextUI", 18.0f, COLOR_RED);
+
+    flip_screen();
+}
+
 // Render Offline / Disconnected State UI
 static void render_offline_ui(void) {
     draw_rect(0, 0, g_screen_w, g_screen_h, COLOR_BG);
@@ -888,7 +960,11 @@ static void render_ui(void) {
     if (!g_backbuffer) return;
 
     if (g_game_count == 0) {
-        render_offline_ui();
+        if (g_connected) {
+            render_empty_store_ui();
+        } else {
+            render_offline_ui();
+        }
         return;
     }
 
@@ -1305,6 +1381,7 @@ static void open_settings_menu(void) {
     char server_changelog[512] = "";
     bool ver_checked = false;
     bool has_update = false;
+    int ota_source = 0; // 0: Local Server, 1: GitHub Raw
 
     // Local IP state with on-screen Numpad
     int octets[4] = {192, 168, 1, 118};
@@ -1602,60 +1679,110 @@ static void open_settings_menu(void) {
         }
         else if (view == SETTING_VIEW_OTA_UPDATE) {
             draw_text(modal_x + 36, modal_y + 45, "ตรวจสอบและอัปเดตโปรแกรม (OTA Update)", 28.0f, COLOR_WHITE);
-            draw_text(modal_x + 36, modal_y + 75, "อัปเดตโปรแกรมเวอร์ชันใหม่ผ่าน Wi-Fi ได้ทันทีโดยไม่ต้องถอด SD Card", 18.0f, COLOR_GRAY);
+            draw_text(modal_x + 36, modal_y + 75, "อัปเดตเวอร์ชันใหม่ผ่าน Wi-Fi ได้ทันที (ดึงตรงจาก GitHub)", 18.0f, COLOR_GRAY);
 
             if (!ver_checked) {
                 draw_rounded_rect(modal_x + 36, modal_y + 115, modal_w - 72, 320, 12, COLOR_PANEL_ALT);
                 draw_rect_outline(modal_x + 36, modal_y + 115, modal_w - 72, 320, COLOR_CARD_BORDER, 1);
-                draw_text(modal_x + 56, modal_y + 240, "กำลังเชื่อมต่อตรวจสอบเวอร์ชันใหม่จาก Server...", 22.0f, COLOR_CYAN);
+                draw_text(modal_x + 56, modal_y + 240, "กำลังเชื่อมต่อตรวจสอบเวอร์ชันล่าสุดจาก GitHub...", 22.0f, COLOR_CYAN);
                 flip_screen();
 
+                ota_source = 0;
+                server_ver[0] = '\0';
+                server_build[0] = '\0';
+                server_changelog[0] = '\0';
+
+                // 1. Try GitHub Raw first
+                unlink("/tmp/app_ver.json");
                 char cmd[512];
-                snprintf(cmd, sizeof(cmd), "bin/curl -s -m 4 \"%s/api/app/version\" -o /tmp/app_ver.json", g_server_url);
+                snprintf(cmd, sizeof(cmd), "bin/curl -k -s -L -m 5 \"https://raw.githubusercontent.com/namememem02-ui/Mee-a-rai-RomStore/main/client_pak/ThaiRomStore.pak/pak.json\" -o /tmp/app_ver.json");
                 system(cmd);
 
                 FILE *vf = fopen("/tmp/app_ver.json", "r");
                 if (vf) {
-                    char vline[1024];
-                    if (fgets(vline, sizeof(vline), vf)) {
+                    char vline[2048];
+                    while (fgets(vline, sizeof(vline), vf)) {
                         char *vp = strstr(vline, "\"version\":");
                         if (vp) {
                             vp = strchr(vp + 10, '"');
                             if (vp) {
                                 vp++;
+                                if (*vp == 'v' || *vp == 'V') vp++;
                                 char *vend = strchr(vp, '"');
                                 if (vend) {
                                     *vend = '\0';
                                     strncpy(server_ver, vp, sizeof(server_ver) - 1);
+                                    ota_source = 1;
+                                    strncpy(server_build, "GitHub Main", sizeof(server_build) - 1);
                                 }
                             }
                         }
-                        char *bp = strstr(vline, "\"build_time\":");
-                        if (bp) {
-                            bp = strchr(bp + 13, '"');
-                            if (bp) {
-                                bp++;
-                                char *bend = strchr(bp, '"');
-                                if (bend) {
-                                    *bend = '\0';
-                                    strncpy(server_build, bp, sizeof(server_build) - 1);
-                                }
-                            }
-                        }
-                        char *cp = strstr(vline, "\"changelog\":");
-                        if (cp) {
-                            cp = strchr(cp + 12, '"');
-                            if (cp) {
-                                cp++;
-                                char *cend = strchr(cp, '"');
-                                if (cend) {
-                                    *cend = '\0';
-                                    strncpy(server_changelog, cp, sizeof(server_changelog) - 1);
+                        char *dp = strstr(vline, "\"description\":");
+                        if (dp) {
+                            dp = strchr(dp + 14, '"');
+                            if (dp) {
+                                dp++;
+                                char *dend = strchr(dp, '"');
+                                if (dend) {
+                                    *dend = '\0';
+                                    strncpy(server_changelog, dp, sizeof(server_changelog) - 1);
                                 }
                             }
                         }
                     }
                     fclose(vf);
+                }
+
+                // 2. Fallback to Local PC Server if GitHub is unreachable
+                if (strlen(server_ver) == 0 && strlen(g_server_url) > 0) {
+                    snprintf(cmd, sizeof(cmd), "bin/curl -s -m 4 \"%s/api/app/version\" -o /tmp/app_ver.json", g_server_url);
+                    system(cmd);
+
+                    vf = fopen("/tmp/app_ver.json", "r");
+                    if (vf) {
+                        char vline[2048];
+                        if (fgets(vline, sizeof(vline), vf)) {
+                            char *vp = strstr(vline, "\"version\":");
+                            if (vp) {
+                                vp = strchr(vp + 10, '"');
+                                if (vp) {
+                                    vp++;
+                                    if (*vp == 'v' || *vp == 'V') vp++;
+                                    char *vend = strchr(vp, '"');
+                                    if (vend) {
+                                        *vend = '\0';
+                                        strncpy(server_ver, vp, sizeof(server_ver) - 1);
+                                        ota_source = 0;
+                                    }
+                                }
+                            }
+                            char *bp = strstr(vline, "\"build_time\":");
+                            if (bp) {
+                                bp = strchr(bp + 13, '"');
+                                if (bp) {
+                                    bp++;
+                                    char *bend = strchr(bp, '"');
+                                    if (bend) {
+                                        *bend = '\0';
+                                        strncpy(server_build, bp, sizeof(server_build) - 1);
+                                    }
+                                }
+                            }
+                            char *cp = strstr(vline, "\"changelog\":");
+                            if (cp) {
+                                cp = strchr(cp + 12, '"');
+                                if (cp) {
+                                    cp++;
+                                    char *cend = strchr(cp, '"');
+                                    if (cend) {
+                                        *cend = '\0';
+                                        strncpy(server_changelog, cp, sizeof(server_changelog) - 1);
+                                    }
+                                }
+                            }
+                        }
+                        fclose(vf);
+                    }
                 }
 
                 ver_checked = true;
@@ -1675,10 +1802,11 @@ static void open_settings_menu(void) {
 
             char srv_vstr[128];
             if (strlen(server_ver) > 0) {
-                snprintf(srv_vstr, sizeof(srv_vstr), "เวอร์ชันบน Server:          v%s  (%s)", server_ver, server_build);
+                snprintf(srv_vstr, sizeof(srv_vstr), "เวอร์ชันบน %s:   v%s  (%s)",
+                         ota_source ? "GitHub" : "Server", server_ver, server_build);
                 draw_text(modal_x + 56, box_y + 80, srv_vstr, 22.0f, COLOR_CYAN);
             } else {
-                draw_text(modal_x + 56, box_y + 80, "เวอร์ชันบน Server:          [!] ไม่สามารถตรวจสอบได้", 22.0f, COLOR_RED);
+                draw_text(modal_x + 56, box_y + 80, "เวอร์ชันออนไลน์:            [!] ไม่สามารถตรวจสอบได้ (กรุณาต่อ Wi-Fi)", 22.0f, COLOR_RED);
             }
 
             if (strlen(server_changelog) > 0) {
@@ -1688,7 +1816,7 @@ static void open_settings_menu(void) {
 
             if (strlen(server_ver) == 0) {
                 draw_rounded_rect(modal_x + 56, box_y + 220, modal_w - 112, 55, 8, 0xFF451A1A);
-                draw_text(modal_x + 76, box_y + 255, "[!] ไม่สามารถเชื่อมต่อกับ Server กรุณาตรวจสอบ Wi-Fi หรือเปิด server.py", 18.0f, 0xFFFCA5A5);
+                draw_text(modal_x + 76, box_y + 255, "[!] ไม่สามารถเชื่อมต่อกับ GitHub หรือ PC Server กรุณาต่อ Wi-Fi ที่มีเน็ต", 18.0f, 0xFFFCA5A5);
             } else if (has_update) {
                 draw_rounded_rect(modal_x + 56, box_y + 220, modal_w - 112, 55, 8, COLOR_GREEN_BG);
                 draw_text(modal_x + 76, box_y + 255, "[มีอัปเดต] พบเวอร์ชันใหม่พร้อมติดตั้ง! กด [A] เพื่อเริ่มดาวน์โหลดทันที", 19.0f, COLOR_GREEN);
@@ -1818,11 +1946,22 @@ static void open_settings_menu(void) {
                         flip_screen();
 
                         char dl_cmd[1024];
-                        snprintf(dl_cmd, sizeof(dl_cmd),
-                                 "bin/curl -s -L -m 60 \"%s/api/app/latest/store.elf\" -o /tmp/store.elf.update && "
-                                 "bin/curl -s -L -m 15 \"%s/api/app/latest/launch.sh\" -o /tmp/launch.sh.update && "
-                                 "bin/curl -s -L -m 15 \"%s/api/app/latest/autoscan.sh\" -o /tmp/autoscan.sh.update",
-                                 g_server_url, g_server_url, g_server_url);
+                        if (ota_source == 1) {
+                            draw_text(prog_bar_x, prog_bar_y + 75, "กำลังดาวน์โหลดไฟล์อัปเดตตรงจาก GitHub...", 20.0f, COLOR_CYAN);
+                            flip_screen();
+                            snprintf(dl_cmd, sizeof(dl_cmd),
+                                     "bin/curl -k -s -L -m 60 \"https://raw.githubusercontent.com/namememem02-ui/Mee-a-rai-RomStore/main/client_pak/ThaiRomStore.pak/bin/store.elf\" -o /tmp/store.elf.update && "
+                                     "bin/curl -k -s -L -m 15 \"https://raw.githubusercontent.com/namememem02-ui/Mee-a-rai-RomStore/main/client_pak/ThaiRomStore.pak/launch.sh\" -o /tmp/launch.sh.update && "
+                                     "bin/curl -k -s -L -m 15 \"https://raw.githubusercontent.com/namememem02-ui/Mee-a-rai-RomStore/main/client_pak/ThaiRomStore.pak/bin/autoscan.sh\" -o /tmp/autoscan.sh.update");
+                        } else {
+                            draw_text(prog_bar_x, prog_bar_y + 75, "กำลังดาวน์โหลดไฟล์อัปเดตจาก PC Server...", 20.0f, COLOR_CYAN);
+                            flip_screen();
+                            snprintf(dl_cmd, sizeof(dl_cmd),
+                                     "bin/curl -s -L -m 60 \"%s/api/app/latest/store.elf\" -o /tmp/store.elf.update && "
+                                     "bin/curl -s -L -m 15 \"%s/api/app/latest/launch.sh\" -o /tmp/launch.sh.update && "
+                                     "bin/curl -s -L -m 15 \"%s/api/app/latest/autoscan.sh\" -o /tmp/autoscan.sh.update",
+                                     g_server_url, g_server_url, g_server_url);
+                        }
                         int dl_res = system(dl_cmd);
 
                         struct stat ust;

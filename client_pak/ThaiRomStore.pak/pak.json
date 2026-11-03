@@ -1,8 +1,8 @@
 {
   "name": "Thai ROM Store",
-  "version": "v1.2.5",
+  "version": "v1.2.6",
   "type": "TOOL",
-  "description": "Download Thai ROMs & Box Arts over Wi-Fi from Mirai ROM Hub",
+  "description": "v1.2.6: รองรับ OTA จาก GitHub โดยตรง และปรับปรุงหน้าจอแสดงสถานะการเชื่อมต่อ",
   "author": "Mirai HUB",
   "platforms": [
     "tg5040",
