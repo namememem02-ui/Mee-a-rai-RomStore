@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: TrimUI](https://img.shields.io/badge/Platform-TrimUI%20(NextUI%2FMinUI)-emerald)](https://github.com/namememem02-ui/Mee-a-rai-RomStore)
 [![Arch: ARM64](https://img.shields.io/badge/Architecture-ARM64%20Linux%20Framebuffer-purple)](https://github.com/namememem02-ui/Mee-a-rai-RomStore)
-[![Version: v1.2.4](https://img.shields.io/badge/Version-v1.2.4-amber)](https://github.com/namememem02-ui/Mee-a-rai-RomStore)
+[![Version: v1.2.5](https://img.shields.io/badge/Version-v1.2.5-amber)](https://github.com/namememem02-ui/Mee-a-rai-RomStore)
 
 **Mee-a-rai RomStore** (formerly *Mirai ROM Bridge*) เป็นโปรแกรมอำนวยความสะดวกในการจัดเก็บ บริหาร และส่งถ่ายไฟล์เกมสำรอง (Game Backups) และรูปภาพหน้าปก (Box Art) ระหว่างคอมพิวเตอร์ (PC) กับเครื่องเกมพกพาตระกูล **TrimUI** (เช่น **TrimUI Brick, Brick Pro, Smart Pro**) ผ่านระบบเครือข่ายไร้สาย (Wi-Fi ภายในบ้าน) โดยไม่ต้องถอดการ์ด MicroSD Card เข้าๆ ออกๆ อีกต่อไป
 
@@ -14,8 +14,8 @@
 
 | แพ็กเกจ | ไฟล์ดาวน์โหลด | รายละเอียด |
 | :--- | :--- | :--- |
-| 📦 **ชุดรวมสมบูรณ์ (แนะนำ)** | [**Mee-a-rai-RomStore-v1.2.4-Complete.zip**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases/download/v1.2.4/Mee-a-rai-RomStore-v1.2.4-Complete.zip) | รวมฝั่ง PC (start_server.bat) + ฝั่งเครื่องเกม + ภาพคู่มือ ใช้งานได้ทันที |
-| 🎮 **เฉพาะแอพลงเครื่องเกม** | [**ThaiRomStore-TrimUI-v1.2.4.zip**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases/download/v1.2.4/ThaiRomStore-TrimUI-v1.2.4.zip) | แตกไฟล์แล้วก๊อปปี้โฟลเดอร์ Tools ลง MicroSD Card ได้ทันที |
+| 📦 **ชุดรวมสมบูรณ์ (แนะนำ)** | [**Mee-a-rai-RomStore-v1.2.5-Complete.zip**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases/download/v1.2.5/Mee-a-rai-RomStore-v1.2.5-Complete.zip) | รวมฝั่ง PC (start_server.bat) + ฝั่งเครื่องเกม + ภาพคู่มือ ใช้งานได้ทันที |
+| 🎮 **เฉพาะแอพลงเครื่องเกม** | [**ThaiRomStore-TrimUI-v1.2.5.zip**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases/download/v1.2.5/ThaiRomStore-TrimUI-v1.2.5.zip) | แตกไฟล์แล้วก๊อปปี้โฟลเดอร์ Tools ลง MicroSD Card ได้ทันที |
 
 👉 หรือเลือกดูเวอร์ชันทั้งหมดได้ที่: [**GitHub Releases**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases)
 

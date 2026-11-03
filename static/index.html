@@ -661,15 +661,20 @@
       loadCatalog();
     }
 
-    async function loadCatalog() {
+    async function loadCatalog(retryCount = 0) {
       try {
         const res = await fetch('/api/catalog');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         gamesList = data.games || [];
         document.getElementById('totalCount').innerText = `${gamesList.length} เกม`;
         renderGames();
       } catch (e) {
-        showToast('ไม่สามารถโหลด Catalog ได้', true);
+        if (retryCount < 2) {
+          setTimeout(() => loadCatalog(retryCount + 1), 1500);
+        } else {
+          showToast('ไม่สามารถโหลด Catalog ได้', true);
+        }
       }
     }
 
