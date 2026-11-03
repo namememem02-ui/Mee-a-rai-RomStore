@@ -78,6 +78,19 @@ def check_is_thai(filename):
         return True
     return False
 
+def get_base_url():
+    """Detect request scheme and host dynamically to support Cloudflare Tunnel / Ngrok / Reverse Proxy"""
+    host = request.headers.get('X-Forwarded-Host') or request.headers.get('Host')
+    proto = request.headers.get('X-Forwarded-Proto')
+    if not proto:
+        proto = 'https' if (host and ('trycloudflare.com' in host or 'pinggy.link' in host)) or request.urlparts.scheme == 'https' else 'http'
+    
+    if host:
+        return f"{proto}://{host}"
+        
+    local_ip = get_local_ip()
+    return f"http://{local_ip}:8080"
+
 @app.route('/')
 def index():
     return static_file('index.html', root=str(BASE_DIR / 'static'))
@@ -91,14 +104,14 @@ def api_info():
     return {
         "server_ip": get_local_ip(),
         "port": 8080,
+        "base_url": get_base_url(),
         "supported_systems": SYSTEM_MAPPING
     }
 
 @app.route('/api/catalog')
 def api_catalog():
     catalog = []
-    local_ip = get_local_ip()
-    base_url = f"http://{local_ip}:8080"
+    base_url = get_base_url()
     
     for sys_key, full_sys_name in SYSTEM_MAPPING.items():
         sys_path = ROMS_DIR / full_sys_name
@@ -138,8 +151,7 @@ def api_catalog():
 def api_catalog_sync():
     """Text-based endpoint formatted specifically for TrimUI Smart Pro shell scripts"""
     lines = []
-    local_ip = get_local_ip()
-    base_url = f"http://{local_ip}:8080"
+    base_url = get_base_url()
     import urllib.parse
     
     for sys_key, full_sys_name in SYSTEM_MAPPING.items():
