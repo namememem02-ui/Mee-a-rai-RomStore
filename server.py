@@ -6,7 +6,11 @@ import socket
 import re
 from pathlib import Path
 from bottle import Bottle, request, response, static_file, run
-from PIL import Image
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -16,7 +20,6 @@ app = Bottle()
 BASE_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = BASE_DIR / "storage"
 ROMS_DIR = STORAGE_DIR / "Roms"
-ROMS_SOURCE_DIR = Path(r"C:\Users\suppo\OneDrive\Desktop\Rom")
 
 SYSTEM_MAPPING = {
     "GBA": "Game Boy Advance (GBA)",
@@ -56,79 +59,12 @@ def get_local_ip():
     return ip
 
 def init_storage():
+    """Ensure all console directories and .media folders exist within storage/Roms"""
     for sys_folder in SYSTEM_MAPPING.values():
         sys_path = ROMS_DIR / sys_folder
         media_path = sys_path / ".media"
         sys_path.mkdir(parents=True, exist_ok=True)
         media_path.mkdir(parents=True, exist_ok=True)
-
-def is_original_dir(path_str):
-    p = str(path_str).lower()
-    return "ต้นฉบับ" in p or "鹩" in p or "backup" in p or "emu" in p
-
-def check_is_thai(filename):
-    name = filename.lower()
-    # Explicit Thai keywords
-    if any(k in name for k in ['thai', 'แปลไทย', 'nonplae', 'thaimod', 'auns555', 'memorycardth']):
-        return True
-    # Word boundary check for 'th' (not substring like Brea[th])
-    if re.search(r'[\(\[\_\-\s]th[\)\]\_\-\s\.]', name) or re.search(r'[\(\[\_\-\s]th$', name):
-        return True
-    return False
-
-def scan_initial_roms():
-    """Import ONLY translated ROMs and matching covers from Desktop/Rom folder"""
-    init_storage()
-    if not ROMS_SOURCE_DIR.exists():
-        return
-        
-    # 1. Index all covers in Desktop/Rom
-    covers = {}
-    for root, dirs, files in os.walk(ROMS_SOURCE_DIR):
-        for f in files:
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                stem = Path(f).stem.strip().lower()
-                covers[stem] = os.path.join(root, f)
-
-    # 2. Walk through system folders and copy ONLY translated ROMs + Covers
-    for sys_key, full_sys_name in SYSTEM_MAPPING.items():
-        src_sys_dir = ROMS_SOURCE_DIR / sys_key
-        if not src_sys_dir.exists():
-            continue
-            
-        target_rom_dir = ROMS_DIR / full_sys_name
-        target_media_dir = target_rom_dir / ".media"
-        
-        for root, dirs, files in os.walk(src_sys_dir):
-            # Skip any original/backup folder!
-            if is_original_dir(root):
-                continue
-                
-            for f in files:
-                ext = Path(f).suffix.lower()
-                if ext in ['.gba', '.zip', '.iso', '.chd', '.pbp', '.nds', '.nes', '.sfc']:
-                    src_file = Path(root) / f
-                    target_file = target_rom_dir / f
-                    if not target_file.exists():
-                        try:
-                            try:
-                                os.link(src_file, target_file)
-                            except Exception:
-                                shutil.copy2(src_file, target_file)
-                        except Exception as e:
-                            print(f"Error importing {f}: {e}")
-                            
-                    # Match cover
-                    stem = Path(f).stem.strip().lower()
-                    if stem in covers:
-                        src_cover = covers[stem]
-                        target_cover = target_media_dir / f"{Path(f).stem}.png"
-                        if not target_cover.exists():
-                            try:
-                                with Image.open(src_cover) as img:
-                                    img.convert("RGBA").save(target_cover, "PNG")
-                            except Exception as e:
-                                print(f"Error copying cover {src_cover}: {e}")
 
 @app.route('/')
 def index():
@@ -261,10 +197,17 @@ def api_upload():
         
         if cover_file:
             final_cover_path = target_media_dir / f"{stem}.png"
-            img = Image.open(cover_file.file)
-            img = img.convert("RGBA")
-            img.thumbnail((500, 500), Image.Resampling.LANCZOS)
-            img.save(final_cover_path, "PNG", optimize=True)
+            if Image:
+                try:
+                    img = Image.open(cover_file.file)
+                    img = img.convert("RGBA")
+                    resample_filter = getattr(Image, 'Resampling', Image).LANCZOS
+                    img.thumbnail((500, 500), resample_filter)
+                    img.save(final_cover_path, "PNG", optimize=True)
+                except Exception:
+                    cover_file.save(str(final_cover_path), overwrite=True)
+            else:
+                cover_file.save(str(final_cover_path), overwrite=True)
             
         return {
             "success": True,
@@ -338,11 +281,11 @@ def api_latest_autoscan_sh():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("🚀 Initializing Mirai ROM Hub...")
-    scan_initial_roms()
+    print("🚀 Initializing Mee-a-rai ROM Store...")
+    init_storage()
     ip = get_local_ip()
     port = 8080
-    print(f"✨ Mirai ROM Hub Server running on:")
+    print(f"✨ Mee-a-rai ROM Store Server running on:")
     print(f"   💻 PC Web Dashboard: http://localhost:{port}")
     print(f"   📶 TrimUI Smart Pro Wi-Fi IP: http://{ip}:{port}")
     print("=" * 60)
