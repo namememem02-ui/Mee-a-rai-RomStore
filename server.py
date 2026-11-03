@@ -276,7 +276,7 @@ def api_app_version():
     return {
         "version": ver_str,
         "build_time": build_time,
-        "changelog": "แยกตัวกรองเครื่องเกม PSX และ PSP ชัดเจน 100% ไม่ปนกัน พร้อมแสดงชื่อเครื่องบนปุ่มกรอง"
+        "changelog": "v1.2.5: เพิ่ม Numpad กรอก IP, บันทึก IP ทันที, อัปเกรด Auto-Scan รวดเร็วทุกวงแลน, และล้างแคชเก่า"
     }
 
 @app.route('/api/app/latest/store.elf')

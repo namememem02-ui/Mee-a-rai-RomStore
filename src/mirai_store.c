@@ -23,7 +23,7 @@
 
 #define MAX_GAMES 1000
 #define ROWS_PER_PAGE 6
-#define APP_VERSION "1.2.4"
+#define APP_VERSION "1.2.5"
 
 // Colors (ARGB 32-bit: 0xAARRGGBB)
 #define COLOR_BG          0xFF0B0F19
@@ -469,12 +469,15 @@ static void flip_screen(void) {
     }
 }
 
-// Save config to config.txt
+// Save config to config.txt (unconditionally writes & syncs to flash)
 static void save_config(const char *mode, const char *local_url, const char *online_url) {
     const char *paths[] = {
         "config.txt",
+        "./config.txt",
         "/mnt/SDCARD/Tools/tg5040/ThaiRomStore.pak/config.txt",
         "/mnt/sdcard/Tools/tg5040/ThaiRomStore.pak/config.txt",
+        "/mnt/SDCARD/Tools/ThaiRomStore.pak/config.txt",
+        "/mnt/sdcard/Tools/ThaiRomStore.pak/config.txt",
         NULL
     };
     for (int i = 0; paths[i]; i++) {
@@ -488,6 +491,7 @@ static void save_config(const char *mode, const char *local_url, const char *onl
             fclose(f);
         }
     }
+    sync();
 }
 
 // Find appropriate ROM and Cover destinations on SD card
@@ -679,6 +683,13 @@ static void load_catalog(void) {
     }
     fclose(f);
     g_connected = (g_game_count > 0);
+    if (g_game_count == 0) {
+        if (g_cover_pixels) {
+            free(g_cover_pixels);
+            g_cover_pixels = NULL;
+        }
+        g_cover_loaded_index = -1;
+    }
     apply_filter();
 }
 
@@ -1295,11 +1306,24 @@ static void open_settings_menu(void) {
     bool ver_checked = false;
     bool has_update = false;
 
-    // Local IP state
+    // Local IP state with on-screen Numpad
     int octets[4] = {192, 168, 1, 118};
     int ip_port = 8080;
-    int octet_field = 3; // start on last octet
+    int octet_field = 3; // 0..3: IP octet, 4: Port
+    bool octet_fresh[5] = {true, true, true, true, true};
     parse_ip_from_url(g_server_url, octets, &ip_port);
+
+    int ip_area = 1; // 0: Octet boxes, 1: Numpad grid, 2: Actions
+    int np_row = 0; // 0..3
+    int np_col = 0; // 0..4
+    int ip_act_idx = 0; // 0: Save, 1: Test, 2: Cancel
+
+    static const char *np_labels[4][5] = {
+        {"1", "2", "3", "+1", "+10"},
+        {"4", "5", "6", "-1", "-10"},
+        {"7", "8", "9", "0", "ลบ <"},
+        {"< ก่อน", "ถัดไป >", "ล้าง", "Wi-Fi", ":8080"}
+    };
 
     // Online URL state
     char url_edit[256];
@@ -1335,115 +1359,162 @@ static void open_settings_menu(void) {
         draw_rect_outline(modal_x, modal_y, modal_w, modal_h, COLOR_CARD_BORDER, 2);
 
         if (view == SETTING_VIEW_MAIN) {
-            draw_text(modal_x + 36, modal_y + 45, "การตั้งค่าระบบและการเชื่อมต่อ", 28.0f, COLOR_WHITE);
-            draw_text(modal_x + 36, modal_y + 75, "เลือกตั้งค่าการเชื่อมต่อไปยัง Mirai ROM Hub หรืออัปเดตโปรแกรม", 18.0f, COLOR_GRAY);
+            draw_text(modal_x + 36, modal_y + 40, "การตั้งค่าระบบและการเชื่อมต่อ", 28.0f, COLOR_WHITE);
+            draw_text(modal_x + 36, modal_y + 68, "เลือกตั้งค่าการเชื่อมต่อไปยัง PC Server หรือล้างแคชไฟล์", 17.0f, COLOR_GRAY);
 
             char cur_info[256];
             snprintf(cur_info, sizeof(cur_info), "URL: %s  (%s)  |  แอป: v%s",
                      g_server_url, g_connected ? "เชื่อมต่ออยู่" : "ไม่ได้เชื่อมต่อ", APP_VERSION);
-            draw_text(modal_x + 36, modal_y + 105, cur_info, 18.0f, g_connected ? COLOR_GREEN : COLOR_AMBER);
+            draw_text(modal_x + 36, modal_y + 96, cur_info, 17.0f, g_connected ? COLOR_GREEN : COLOR_AMBER);
 
             static const char *menu_titles[] = {
                 "[1] ค้นหาคอมพิวเตอร์ใน Wi-Fi (Auto-Scan)",
                 "[2] ปรับแต่งตัวเลข IP คอมพิวเตอร์ (Local IP)",
                 "[3] พิมพ์ URL ออนไลน์ / คลาวด์ภายนอก",
                 "[4] ตรวจสอบและอัปเดตโปรแกรม (OTA Update)",
-                "[5] ย้อนกลับสู่เมนูหลัก"
+                "[5] ล้างรูปภาพและแคชชั่วคราว (Clear Cache)",
+                "[6] ย้อนกลับสู่หน้าหลัก"
             };
             static const char *menu_desc[] = {
-                "สแกนหาคอมพิวเตอร์ที่เปิด server.py ในวงแลนเดียวกันอัตโนมัติ สะดวกที่สุด",
-                "ปรับเปลี่ยนเลข IP และ Port ด้วยปุ่มลูกศร เหมาะสำหรับ IP คอมในบ้าน",
+                "สแกนหาคอมพิวเตอร์ที่เปิด server.py ในวงแลนเดียวกันอัตโนมัติ (รองรับ IP ทุกวง)",
+                "พิมพ์หรือปรับตัวเลข IP ด้วยแป้นพิมพ์ตัวเลข (Numpad) บนหน้าจอ",
                 "ใช้คีย์บอร์ดเสมือนพิมพ์โดเมนเนม หรือ Cloudflare Tunnel สำหรับเล่นนอกบ้าน",
                 "เช็คเวอร์ชันใหม่จาก Server และดาวน์โหลดอัปเดตลงเครื่องได้ทันทีไม่ต้องถอด SD Card",
+                "ล้างแคชรายชื่อเกมเก่าและรูปภาพปกชั่วคราวในเครื่องเพื่อรีเฟรชข้อมูลใหม่",
                 "บันทึกและปิดหน้าต่างตั้งค่า"
             };
 
-            for (int i = 0; i < 5; i++) {
-                int iy = modal_y + 135 + i * 78;
+            for (int i = 0; i < 6; i++) {
+                int iy = modal_y + 124 + i * 66;
                 bool is_sel = (i == main_sel);
                 if (is_sel) {
-                    draw_rounded_rect(modal_x + 36, iy, modal_w - 72, 68, 12, COLOR_HIGHLIGHT);
-                    draw_rect_outline(modal_x + 36, iy, modal_w - 72, 68, COLOR_HIGHLIGHT_BORDER, 3);
+                    draw_rounded_rect(modal_x + 36, iy, modal_w - 72, 58, 10, COLOR_HIGHLIGHT);
+                    draw_rect_outline(modal_x + 36, iy, modal_w - 72, 58, COLOR_HIGHLIGHT_BORDER, 2);
                 } else {
-                    draw_rounded_rect(modal_x + 36, iy, modal_w - 72, 68, 12, COLOR_PANEL_ALT);
-                    draw_rect_outline(modal_x + 36, iy, modal_w - 72, 68, COLOR_CARD_BORDER, 1);
+                    draw_rounded_rect(modal_x + 36, iy, modal_w - 72, 58, 10, COLOR_PANEL_ALT);
+                    draw_rect_outline(modal_x + 36, iy, modal_w - 72, 58, COLOR_CARD_BORDER, 1);
                 }
-                draw_text(modal_x + 56, iy + 30, menu_titles[i], 21.0f, is_sel ? COLOR_WHITE : 0xFFE2E8F0);
-                draw_text(modal_x + 56, iy + 54, menu_desc[i], 15.0f, is_sel ? 0xFFBAE6FD : COLOR_GRAY);
+                draw_text(modal_x + 52, iy + 26, menu_titles[i], 20.0f, is_sel ? COLOR_WHITE : 0xFFE2E8F0);
+                draw_text(modal_x + 52, iy + 48, menu_desc[i], 14.0f, is_sel ? 0xFFBAE6FD : COLOR_GRAY);
             }
 
-            draw_text(modal_x + 36, modal_y + modal_h - 20, "[D-Pad] เลือกตัวเลือก     [A] ตกลง     [B] ย้อนกลับ", 17.0f, COLOR_GRAY);
+            if (strlen(message_notice) > 0) {
+                draw_text(modal_x + 36, modal_y + modal_h - 18, message_notice, 16.0f, message_color);
+            } else {
+                draw_text(modal_x + 36, modal_y + modal_h - 18, "[D-Pad] เลือกตัวเลือก     [A] ตกลง     [B] ย้อนกลับ", 16.0f, COLOR_GRAY);
+            }
         }
         else if (view == SETTING_VIEW_LOCAL_IP) {
-            draw_text(modal_x + 36, modal_y + 50, "ปรับแต่งตัวเลข Local IP คอมพิวเตอร์", 28.0f, COLOR_WHITE);
-            draw_text(modal_x + 36, modal_y + 84, "ใช้ปุ่ม [ซ้าย/ขวา] เลือกช่อง และ [ขึ้น/ลง] ปรับตัวเลข IP", 18.0f, COLOR_GRAY);
+            draw_text(modal_x + 36, modal_y + 42, "ปรับแต่งตัวเลข Local IP คอมพิวเตอร์", 26.0f, COLOR_WHITE);
+            draw_text(modal_x + 36, modal_y + 68, "กดเลือกพิมพ์ตัวเลขจาก Numpad ด้านล่าง หรือใช้ปุ่ม [ขึ้น/ลง] ปรับเลขได้ทันที", 16.0f, COLOR_GRAY);
 
-            int box_start_x = modal_x + 46;
-            int box_y = modal_y + 150;
+            int box_start_x = modal_x + 36;
+            int box_y = modal_y + 92;
             int box_w = 95;
-            int box_h = 75;
+            int box_h = 50;
 
             for (int i = 0; i < 4; i++) {
                 int bx = box_start_x + i * 115;
-                bool is_sel = (octet_field == i);
-                if (is_sel) {
-                    draw_rounded_rect(bx, box_y, box_w, box_h, 12, COLOR_HIGHLIGHT);
-                    draw_rect_outline(bx, box_y, box_w, box_h, COLOR_HIGHLIGHT_BORDER, 3);
-                    draw_text(bx + (box_w / 2) - 10, box_y - 12, "+", 20.0f, COLOR_CYAN);
-                    draw_text(bx + (box_w / 2) - 10, box_y + box_h + 24, "-", 20.0f, COLOR_CYAN);
+                bool is_box_focus = (octet_field == i);
+                bool is_active_area = (ip_area == 0 && is_box_focus);
+
+                if (is_active_area) {
+                    draw_rounded_rect(bx, box_y, box_w, box_h, 8, COLOR_HIGHLIGHT);
+                    draw_rect_outline(bx, box_y, box_w, box_h, COLOR_WHITE, 3);
+                } else if (is_box_focus) {
+                    draw_rounded_rect(bx, box_y, box_w, box_h, 8, COLOR_PANEL_ALT);
+                    draw_rect_outline(bx, box_y, box_w, box_h, COLOR_GREEN, 2);
                 } else {
-                    draw_rounded_rect(bx, box_y, box_w, box_h, 12, COLOR_PANEL_ALT);
+                    draw_rounded_rect(bx, box_y, box_w, box_h, 8, COLOR_PANEL_ALT);
                     draw_rect_outline(bx, box_y, box_w, box_h, COLOR_CARD_BORDER, 1);
                 }
                 char num_str[32];
                 snprintf(num_str, sizeof(num_str), "%d", octets[i]);
-                int str_w = (int)strlen(num_str) * 18;
-                draw_text(bx + (box_w - str_w) / 2, box_y + 50, num_str, 32.0f, is_sel ? COLOR_WHITE : 0xFFE2E8F0);
+                int str_w = (int)strlen(num_str) * 16;
+                draw_text(bx + (box_w - str_w) / 2, box_y + 34, num_str, 26.0f, is_box_focus ? COLOR_WHITE : 0xFFCBD5E1);
 
                 if (i < 3) {
-                    draw_text(bx + box_w + 6, box_y + 50, ".", 32.0f, COLOR_GRAY);
+                    draw_text(bx + box_w + 8, box_y + 34, ".", 26.0f, COLOR_GRAY);
                 }
             }
 
             int port_x = box_start_x + 4 * 115 + 10;
-            int port_w = 130;
-            bool is_port_sel = (octet_field == 4);
-            draw_text(port_x - 14, box_y + 50, ":", 32.0f, COLOR_GRAY);
-            if (is_port_sel) {
-                draw_rounded_rect(port_x, box_y, port_w, box_h, 12, COLOR_HIGHLIGHT);
-                draw_rect_outline(port_x, box_y, port_w, box_h, COLOR_HIGHLIGHT_BORDER, 3);
-                draw_text(port_x + (port_w / 2) - 10, box_y - 12, "+", 20.0f, COLOR_CYAN);
-                draw_text(port_x + (port_w / 2) - 10, box_y + box_h + 24, "-", 20.0f, COLOR_CYAN);
+            int port_w = 125;
+            bool is_port_focus = (octet_field == 4);
+            bool is_port_active = (ip_area == 0 && is_port_focus);
+            draw_text(port_x - 14, box_y + 34, ":", 26.0f, COLOR_GRAY);
+            if (is_port_active) {
+                draw_rounded_rect(port_x, box_y, port_w, box_h, 8, COLOR_HIGHLIGHT);
+                draw_rect_outline(port_x, box_y, port_w, box_h, COLOR_WHITE, 3);
+            } else if (is_port_focus) {
+                draw_rounded_rect(port_x, box_y, port_w, box_h, 8, COLOR_PANEL_ALT);
+                draw_rect_outline(port_x, box_y, port_w, box_h, COLOR_GREEN, 2);
             } else {
-                draw_rounded_rect(port_x, box_y, port_w, box_h, 12, COLOR_PANEL_ALT);
+                draw_rounded_rect(port_x, box_y, port_w, box_h, 8, COLOR_PANEL_ALT);
                 draw_rect_outline(port_x, box_y, port_w, box_h, COLOR_CARD_BORDER, 1);
             }
             char port_str[32];
             snprintf(port_str, sizeof(port_str), "%d", ip_port);
-            draw_text(port_x + 24, box_y + 50, port_str, 32.0f, is_port_sel ? COLOR_WHITE : 0xFFE2E8F0);
+            draw_text(port_x + 20, box_y + 34, port_str, 26.0f, is_port_focus ? COLOR_WHITE : 0xFFCBD5E1);
 
             char full_test_url[256];
             snprintf(full_test_url, sizeof(full_test_url), "http://%d.%d.%d.%d:%d",
                      octets[0], octets[1], octets[2], octets[3], ip_port);
-            draw_text(modal_x + 46, box_y + box_h + 55, "URL เป้าหมาย:", 19.0f, COLOR_GRAY);
-            draw_text(modal_x + 160, box_y + box_h + 55, full_test_url, 21.0f, COLOR_CYAN);
+            draw_text(modal_x + 36, box_y + box_h + 24, "เป้าหมาย:", 16.0f, COLOR_GRAY);
+            draw_text(modal_x + 115, box_y + box_h + 24, full_test_url, 18.0f, COLOR_CYAN);
 
-            int btn_y = modal_y + modal_h - 130;
-            bool btn_conn_sel = (octet_field == 5);
-            bool btn_canc_sel = (octet_field == 6);
+            // Virtual Numpad Grid (4 rows x 5 cols)
+            int np_start_y = box_y + box_h + 38;
+            int np_key_w = 132;
+            int np_key_h = 42;
+            int np_spacing = 11;
 
-            draw_rounded_rect(modal_x + 46, btn_y, 380, 56, 12, btn_conn_sel ? COLOR_GREEN : COLOR_GREEN_BG);
-            if (btn_conn_sel) draw_rect_outline(modal_x + 46, btn_y, 380, 56, COLOR_WHITE, 3);
-            draw_text(modal_x + 65, btn_y + 36, "[START] บันทึกและเชื่อมต่อ", 21.0f, COLOR_WHITE);
+            for (int r = 0; r < 4; r++) {
+                int ry = np_start_y + r * (np_key_h + np_spacing);
+                for (int c = 0; c < 5; c++) {
+                    int kx = modal_x + 36 + c * (np_key_w + np_spacing);
+                    bool is_sel = (ip_area == 1 && np_row == r && np_col == c);
 
-            draw_rounded_rect(modal_x + 450, btn_y, 240, 56, 12, btn_canc_sel ? COLOR_HIGHLIGHT : COLOR_PANEL_ALT);
-            if (btn_canc_sel) draw_rect_outline(modal_x + 450, btn_y, 240, 56, COLOR_WHITE, 3);
-            draw_text(modal_x + 505, btn_y + 36, "[B] ยกเลิก", 21.0f, COLOR_WHITE);
+                    uint32_t bg_col = COLOR_PANEL_ALT;
+                    if (is_sel) bg_col = COLOR_HIGHLIGHT;
+                    else if (strcmp(np_labels[r][c], "Wi-Fi") == 0) bg_col = 0xFF14532D;
+
+                    draw_rounded_rect(kx, ry, np_key_w, np_key_h, 8, bg_col);
+                    if (is_sel) draw_rect_outline(kx, ry, np_key_w, np_key_h, COLOR_WHITE, 2);
+                    else draw_rect_outline(kx, ry, np_key_w, np_key_h, COLOR_CARD_BORDER, 1);
+
+                    uint32_t txt_col = is_sel ? COLOR_WHITE : 0xFFE2E8F0;
+                    if (!is_sel) {
+                        if (r < 3 && c <= 2) txt_col = COLOR_WHITE;
+                        else if (c >= 3) txt_col = COLOR_CYAN;
+                        if (strcmp(np_labels[r][c], "Wi-Fi") == 0) txt_col = 0xFF86EFAC;
+                    }
+                    draw_text(kx + 22, ry + 28, np_labels[r][c], 18.0f, txt_col);
+                }
+            }
+
+            // Action Buttons
+            int btn_y = np_start_y + 4 * (np_key_h + np_spacing) + 14;
+            bool btn_save_sel = (ip_area == 2 && ip_act_idx == 0);
+            bool btn_test_sel = (ip_area == 2 && ip_act_idx == 1);
+            bool btn_canc_sel = (ip_area == 2 && ip_act_idx == 2);
+
+            draw_rounded_rect(modal_x + 36, btn_y, 320, 48, 10, btn_save_sel ? COLOR_GREEN : COLOR_GREEN_BG);
+            if (btn_save_sel) draw_rect_outline(modal_x + 36, btn_y, 320, 48, COLOR_WHITE, 3);
+            draw_text(modal_x + 55, btn_y + 31, "[START / A] บันทึก IP ลงเครื่อง", 19.0f, COLOR_WHITE);
+
+            draw_rounded_rect(modal_x + 372, btn_y, 195, 48, 10, btn_test_sel ? COLOR_HIGHLIGHT : COLOR_PANEL_ALT);
+            if (btn_test_sel) draw_rect_outline(modal_x + 372, btn_y, 195, 48, COLOR_WHITE, 2);
+            draw_text(modal_x + 395, btn_y + 31, "[X] ทดสอบเชื่อมต่อ", 18.0f, COLOR_CYAN);
+
+            draw_rounded_rect(modal_x + 582, btn_y, 160, 48, 10, btn_canc_sel ? COLOR_HIGHLIGHT : COLOR_PANEL_ALT);
+            if (btn_canc_sel) draw_rect_outline(modal_x + 582, btn_y, 160, 48, COLOR_WHITE, 2);
+            draw_text(modal_x + 625, btn_y + 31, "[B] ย้อนกลับ", 18.0f, COLOR_WHITE);
 
             if (strlen(message_notice) > 0) {
-                draw_text(modal_x + 46, btn_y + 80, message_notice, 18.0f, message_color);
+                draw_text(modal_x + 36, btn_y + 70, message_notice, 17.0f, message_color);
             } else {
-                draw_text(modal_x + 46, btn_y + 80, "[ซ้าย/ขวา] เลือกช่อง     [ขึ้น/ลง] ปรับเลข     [L1/R1] +-10", 16.0f, COLOR_GRAY);
+                draw_text(modal_x + 36, btn_y + 70, "[D-Pad] เลื่อนปุ่ม     [A] กดพิมพ์     [START] บันทึกทันที     [B] ย้อนกลับ", 15.0f, COLOR_GRAY);
             }
         }
         else if (view == SETTING_VIEW_ONLINE_URL) {
@@ -1685,7 +1756,7 @@ static void open_settings_menu(void) {
             }
             else if (view == SETTING_VIEW_MAIN) {
                 if (act == ACT_UP && main_sel > 0) main_sel--;
-                else if (act == ACT_DOWN && main_sel < 4) main_sel++;
+                else if (act == ACT_DOWN && main_sel < 5) main_sel++;
                 else if (act == ACT_A || act == ACT_START) {
                     if (main_sel == 0) {
                         view = SETTING_VIEW_AUTOSCAN;
@@ -1694,6 +1765,11 @@ static void open_settings_menu(void) {
                         view = SETTING_VIEW_LOCAL_IP;
                         parse_ip_from_url(g_server_url, octets, &ip_port);
                         octet_field = 3;
+                        for (int k = 0; k < 5; k++) octet_fresh[k] = true;
+                        ip_area = 1;
+                        np_row = 0;
+                        np_col = 0;
+                        ip_act_idx = 0;
                         message_notice[0] = '\0';
                     } else if (main_sel == 2) {
                         view = SETTING_VIEW_ONLINE_URL;
@@ -1707,6 +1783,17 @@ static void open_settings_menu(void) {
                         has_update = false;
                         message_notice[0] = '\0';
                     } else if (main_sel == 4) {
+                        // Clear Cache
+                        unlink("/tmp/catalog.txt");
+                        system("rm -rf /tmp/covers/*");
+                        if (g_cover_pixels) {
+                            free(g_cover_pixels);
+                            g_cover_pixels = NULL;
+                        }
+                        g_cover_loaded_index = -1;
+                        snprintf(message_notice, sizeof(message_notice), "[ล้างแล้ว] ล้างแคชรายชื่อและรูปปกชั่วคราวเรียบร้อย");
+                        message_color = COLOR_GREEN;
+                    } else if (main_sel == 5) {
                         in_settings = false;
                     }
                 }
@@ -1758,59 +1845,191 @@ static void open_settings_menu(void) {
                 }
             }
             else if (view == SETTING_VIEW_LOCAL_IP) {
-                if (act == ACT_LEFT && octet_field > 0) octet_field--;
-                else if (act == ACT_RIGHT && octet_field < 6) octet_field++;
-                else if (act == ACT_UP) {
-                    if (octet_field >= 0 && octet_field <= 3) {
-                        octets[octet_field] = (octets[octet_field] + 1) % 256;
-                    } else if (octet_field == 4) {
-                        ip_port++;
-                    } else if (octet_field >= 5) {
-                        octet_field = 3;
+                if (act == ACT_START) {
+                    char test_url[256];
+                    snprintf(test_url, sizeof(test_url), "http://%d.%d.%d.%d:%d",
+                             octets[0], octets[1], octets[2], octets[3], ip_port);
+
+                    // 1. UNCONDITIONAL SAVE TO CONFIG & SYNC
+                    save_config("LOCAL", test_url, "");
+                    strncpy(g_server_url, test_url, sizeof(g_server_url) - 1);
+                    snprintf(message_notice, sizeof(message_notice), "บันทึก IP: %s แล้ว กำลังเชื่อมต่อ...", test_url);
+                    message_color = COLOR_CYAN;
+                    flip_screen();
+
+                    if (test_server_connection(test_url)) {
+                        sync_catalog_from_server(test_url);
+                        snprintf(message_notice, sizeof(message_notice), "[สำเร็จ] เชื่อมต่อสำเร็จ! (%d เกม)", g_game_count);
+                        message_color = COLOR_GREEN;
+                        flip_screen();
+                        usleep(1000000);
+                        in_settings = false;
+                    } else {
+                        snprintf(message_notice, sizeof(message_notice), "[บันทึกแล้ว] บันทึก IP สำเร็จ! (สถานะ: ออฟไลน์ ตรวจสอบ server.py)");
+                        message_color = COLOR_AMBER;
+                    }
+                } else if (act == ACT_X) {
+                    // Backspace / Delete last digit
+                    if (octet_field <= 3) octets[octet_field] /= 10;
+                    else ip_port /= 10;
+                } else if (act == ACT_Y) {
+                    // Clear current octet
+                    if (octet_field <= 3) octets[octet_field] = 0;
+                    else ip_port = 8080;
+                    octet_fresh[octet_field] = true;
+                } else if (act == ACT_L1) {
+                    if (octet_field <= 3) octets[octet_field] = (octets[octet_field] - 10 + 256) % 256;
+                    else if (ip_port > 10) ip_port -= 10;
+                } else if (act == ACT_R1) {
+                    if (octet_field <= 3) octets[octet_field] = (octets[octet_field] + 10) % 256;
+                    else ip_port += 10;
+                } else if (act == ACT_UP) {
+                    if (ip_area == 2) {
+                        ip_area = 1;
+                        np_row = 3;
+                    } else if (ip_area == 1) {
+                        if (np_row > 0) np_row--;
+                        else ip_area = 0;
+                    } else if (ip_area == 0) {
+                        if (octet_field <= 3) octets[octet_field] = (octets[octet_field] + 1) % 256;
+                        else ip_port++;
                     }
                 } else if (act == ACT_DOWN) {
-                    if (octet_field >= 0 && octet_field <= 3) {
-                        octets[octet_field] = (octets[octet_field] - 1 + 256) % 256;
-                    } else if (octet_field == 4) {
-                        if (ip_port > 1) ip_port--;
-                    } else if (octet_field < 5) {
-                        octet_field = 5;
+                    if (ip_area == 0) {
+                        ip_area = 1;
+                        np_row = 0;
+                    } else if (ip_area == 1) {
+                        if (np_row < 3) np_row++;
+                        else ip_area = 2;
                     }
-                } else if (act == ACT_L1) {
-                    if (octet_field >= 0 && octet_field <= 3) {
-                        octets[octet_field] = (octets[octet_field] - 10 + 256) % 256;
-                    } else if (octet_field == 4) {
-                        if (ip_port > 10) ip_port -= 10;
+                } else if (act == ACT_LEFT) {
+                    if (ip_area == 0) {
+                        if (octet_field > 0) { octet_field--; octet_fresh[octet_field] = true; }
+                    } else if (ip_area == 1) {
+                        if (np_col > 0) np_col--;
+                    } else if (ip_area == 2) {
+                        if (ip_act_idx > 0) ip_act_idx--;
                     }
-                } else if (act == ACT_R1) {
-                    if (octet_field >= 0 && octet_field <= 3) {
-                        octets[octet_field] = (octets[octet_field] + 10) % 256;
-                    } else if (octet_field == 4) {
-                        ip_port += 10;
+                } else if (act == ACT_RIGHT) {
+                    if (ip_area == 0) {
+                        if (octet_field < 4) { octet_field++; octet_fresh[octet_field] = true; }
+                    } else if (ip_area == 1) {
+                        if (np_col < 4) np_col++;
+                    } else if (ip_area == 2) {
+                        if (ip_act_idx < 2) ip_act_idx++;
                     }
-                } else if (act == ACT_A || act == ACT_START) {
-                    if (octet_field == 6) {
-                        view = SETTING_VIEW_MAIN;
-                    } else {
-                        char test_url[256];
-                        snprintf(test_url, sizeof(test_url), "http://%d.%d.%d.%d:%d",
-                                 octets[0], octets[1], octets[2], octets[3], ip_port);
-                        snprintf(message_notice, sizeof(message_notice), "กำลังทดสอบ: %s...", test_url);
-                        message_color = COLOR_AMBER;
-                        flip_screen();
+                } else if (act == ACT_A) {
+                    if (ip_area == 0) {
+                        octet_field = (octet_field + 1) % 5;
+                        octet_fresh[octet_field] = true;
+                    } else if (ip_area == 1) {
+                        const char *lbl = np_labels[np_row][np_col];
+                        if (lbl[0] >= '0' && lbl[0] <= '9' && lbl[1] == '\0') {
+                            int digit = lbl[0] - '0';
+                            if (octet_field <= 3) {
+                                if (octet_fresh[octet_field]) {
+                                    octets[octet_field] = digit;
+                                    octet_fresh[octet_field] = false;
+                                } else {
+                                    int n = octets[octet_field] * 10 + digit;
+                                    if (n > 255) n = 255;
+                                    octets[octet_field] = n;
+                                }
+                            } else {
+                                if (octet_fresh[4]) {
+                                    ip_port = digit;
+                                    octet_fresh[4] = false;
+                                } else {
+                                    int p = ip_port * 10 + digit;
+                                    if (p > 65535) p = 65535;
+                                    ip_port = p;
+                                }
+                            }
+                        } else if (strcmp(lbl, "+1") == 0) {
+                            if (octet_field <= 3) octets[octet_field] = (octets[octet_field] + 1) % 256;
+                            else ip_port++;
+                        } else if (strcmp(lbl, "-1") == 0) {
+                            if (octet_field <= 3) octets[octet_field] = (octets[octet_field] - 1 + 256) % 256;
+                            else if (ip_port > 1) ip_port--;
+                        } else if (strcmp(lbl, "+10") == 0) {
+                            if (octet_field <= 3) octets[octet_field] = (octets[octet_field] + 10) % 256;
+                            else ip_port += 10;
+                        } else if (strcmp(lbl, "-10") == 0) {
+                            if (octet_field <= 3) octets[octet_field] = (octets[octet_field] - 10 + 256) % 256;
+                            else if (ip_port > 10) ip_port -= 10;
+                        } else if (strcmp(lbl, "ลบ <") == 0) {
+                            if (octet_field <= 3) octets[octet_field] /= 10;
+                            else ip_port /= 10;
+                        } else if (strcmp(lbl, "< ก่อน") == 0) {
+                            if (octet_field > 0) { octet_field--; octet_fresh[octet_field] = true; }
+                        } else if (strcmp(lbl, "ถัดไป >") == 0) {
+                            if (octet_field < 4) { octet_field++; octet_fresh[octet_field] = true; }
+                        } else if (strcmp(lbl, "ล้าง") == 0) {
+                            if (octet_field <= 3) octets[octet_field] = 0;
+                            else ip_port = 8080;
+                            octet_fresh[octet_field] = true;
+                        } else if (strcmp(lbl, "Wi-Fi") == 0) {
+                            FILE *p = popen("ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1", "r");
+                            if (!p) p = popen("ifconfig wlan0 2>/dev/null | grep 'inet ' | sed 's/.*addr://;s/ .*//'", "r");
+                            if (p) {
+                                char wip[64] = "";
+                                if (fgets(wip, sizeof(wip), p)) {
+                                    int a, b, c, d;
+                                    if (sscanf(wip, "%d.%d.%d.%d", &a, &b, &c, &d) == 4) {
+                                        octets[0] = a; octets[1] = b; octets[2] = c;
+                                        snprintf(message_notice, sizeof(message_notice), "[Wi-Fi] ดึง Subnet %d.%d.%d. สำเร็จ!", a, b, c);
+                                        message_color = COLOR_GREEN;
+                                    }
+                                }
+                                pclose(p);
+                            }
+                        } else if (strcmp(lbl, ":8080") == 0) {
+                            ip_port = 8080;
+                            octet_fresh[4] = true;
+                        }
+                    } else if (ip_area == 2) {
+                        if (ip_act_idx == 0) {
+                            // SAVE & CONNECT
+                            char test_url[256];
+                            snprintf(test_url, sizeof(test_url), "http://%d.%d.%d.%d:%d",
+                                     octets[0], octets[1], octets[2], octets[3], ip_port);
 
-                        if (test_server_connection(test_url)) {
+                            // UNCONDITIONAL SAVE TO CONFIG
+                            save_config("LOCAL", test_url, "");
                             strncpy(g_server_url, test_url, sizeof(g_server_url) - 1);
-                            save_config("LOCAL", g_server_url, "");
-                            sync_catalog_from_server(g_server_url);
-                            snprintf(message_notice, sizeof(message_notice), "[สำเร็จ] เชื่อมต่อสำเร็จ! (%d เกม)", g_game_count);
-                            message_color = COLOR_GREEN;
+                            snprintf(message_notice, sizeof(message_notice), "บันทึก IP แล้ว กำลังเชื่อมต่อ...");
+                            message_color = COLOR_CYAN;
                             flip_screen();
-                            usleep(1000000);
-                            in_settings = false;
-                        } else {
-                            snprintf(message_notice, sizeof(message_notice), "[ไม่สำเร็จ] เชื่อมต่อไม่สำเร็จ ตรวจสอบ IP และ Wi-Fi");
-                            message_color = COLOR_RED;
+
+                            if (test_server_connection(test_url)) {
+                                sync_catalog_from_server(test_url);
+                                snprintf(message_notice, sizeof(message_notice), "[สำเร็จ] เชื่อมต่อสำเร็จ! (%d เกม)", g_game_count);
+                                message_color = COLOR_GREEN;
+                                flip_screen();
+                                usleep(1000000);
+                                in_settings = false;
+                            } else {
+                                snprintf(message_notice, sizeof(message_notice), "[บันทึกแล้ว] บันทึก IP สำเร็จ! (สถานะ: ออฟไลน์ ตรวจสอบ server.py)");
+                                message_color = COLOR_AMBER;
+                            }
+                        } else if (ip_act_idx == 1) {
+                            // TEST ONLY
+                            char test_url[256];
+                            snprintf(test_url, sizeof(test_url), "http://%d.%d.%d.%d:%d",
+                                     octets[0], octets[1], octets[2], octets[3], ip_port);
+                            snprintf(message_notice, sizeof(message_notice), "กำลังทดสอบ: %s...", test_url);
+                            message_color = COLOR_AMBER;
+                            flip_screen();
+
+                            if (test_server_connection(test_url)) {
+                                snprintf(message_notice, sizeof(message_notice), "[พบเซิร์ฟเวอร์] ติดต่อ %s ได้สำเร็จ!", test_url);
+                                message_color = COLOR_GREEN;
+                            } else {
+                                snprintf(message_notice, sizeof(message_notice), "[ไม่พบเซิร์ฟเวอร์] ติดต่อไม่ได้ ตรวจสอบ IP และ server.py");
+                                message_color = COLOR_RED;
+                            }
+                        } else if (ip_act_idx == 2) {
+                            view = SETTING_VIEW_MAIN;
                         }
                     }
                 }
@@ -1842,13 +2061,14 @@ static void open_settings_menu(void) {
                 } else if (act == ACT_X) {
                     url_edit[0] = '\0';
                 } else if (act == ACT_START) {
-                    snprintf(message_notice, sizeof(message_notice), "กำลังทดสอบ: %s...", url_edit);
-                    message_color = COLOR_AMBER;
+                    // UNCONDITIONAL SAVE TO CONFIG
+                    save_config("ONLINE", "", url_edit);
+                    strncpy(g_server_url, url_edit, sizeof(g_server_url) - 1);
+                    snprintf(message_notice, sizeof(message_notice), "บันทึก URL แล้ว กำลังเชื่อมต่อ...");
+                    message_color = COLOR_CYAN;
                     flip_screen();
 
                     if (test_server_connection(url_edit)) {
-                        strncpy(g_server_url, url_edit, sizeof(g_server_url) - 1);
-                        save_config("ONLINE", "", g_server_url);
                         sync_catalog_from_server(g_server_url);
                         snprintf(message_notice, sizeof(message_notice), "[สำเร็จ] เชื่อมต่อสำเร็จ! (%d เกม)", g_game_count);
                         message_color = COLOR_GREEN;
@@ -1856,8 +2076,8 @@ static void open_settings_menu(void) {
                         usleep(1000000);
                         in_settings = false;
                     } else {
-                        snprintf(message_notice, sizeof(message_notice), "[ไม่สำเร็จ] ติดต่อ URL ไม่สำเร็จ ตรวจสอบเน็ต");
-                        message_color = COLOR_RED;
+                        snprintf(message_notice, sizeof(message_notice), "[บันทึกแล้ว] บันทึก URL สำเร็จ! (สถานะ: ออฟไลน์ ตรวจสอบเน็ต)");
+                        message_color = COLOR_AMBER;
                     }
                 } else if (act == ACT_A) {
                     if (kb_area == 0) {
@@ -1876,13 +2096,14 @@ static void open_settings_menu(void) {
                         } else if (kb_action_idx == 1) {
                             url_edit[0] = '\0';
                         } else if (kb_action_idx == 2) {
-                            snprintf(message_notice, sizeof(message_notice), "กำลังทดสอบ: %s...", url_edit);
-                            message_color = COLOR_AMBER;
+                            // UNCONDITIONAL SAVE TO CONFIG
+                            save_config("ONLINE", "", url_edit);
+                            strncpy(g_server_url, url_edit, sizeof(g_server_url) - 1);
+                            snprintf(message_notice, sizeof(message_notice), "บันทึก URL แล้ว กำลังเชื่อมต่อ...");
+                            message_color = COLOR_CYAN;
                             flip_screen();
 
                             if (test_server_connection(url_edit)) {
-                                strncpy(g_server_url, url_edit, sizeof(g_server_url) - 1);
-                                save_config("ONLINE", "", g_server_url);
                                 sync_catalog_from_server(g_server_url);
                                 snprintf(message_notice, sizeof(message_notice), "[สำเร็จ] เชื่อมต่อสำเร็จ! (%d เกม)", g_game_count);
                                 message_color = COLOR_GREEN;
@@ -1890,8 +2111,8 @@ static void open_settings_menu(void) {
                                 usleep(1000000);
                                 in_settings = false;
                             } else {
-                                snprintf(message_notice, sizeof(message_notice), "[ไม่สำเร็จ] ติดต่อ URL ไม่สำเร็จ ตรวจสอบเน็ต");
-                                message_color = COLOR_RED;
+                                snprintf(message_notice, sizeof(message_notice), "[บันทึกแล้ว] บันทึก URL สำเร็จ! (สถานะ: ออฟไลน์ ตรวจสอบเน็ต)");
+                                message_color = COLOR_AMBER;
                             }
                         } else if (kb_action_idx == 3) {
                             view = SETTING_VIEW_MAIN;

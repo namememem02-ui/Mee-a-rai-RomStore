@@ -65,43 +65,30 @@ echo "Active Mode: $MODE"
 echo "Config Local URL: $SERVER_URL"
 echo "Config Online URL: $ONLINE_URL"
 
-# Helper: Auto-scan subnet for PC serve
+# Helper: Auto-scan subnet for PC server
 auto_scan_pc() {
-    echo "Starting Wi-Fi Auto-Discovery for Mirai ROM Hub..."
+    echo "Starting Wi-Fi Auto-Discovery for Mee-a-rai ROM Store..."
     show_msg "IP changed! Auto-scanning Wi-Fi for PC..." 2
 
-    MY_IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || ifconfig wlan0 2>/dev/null | awk '/inet / {print $2}')
-    if [ -z "$MY_IP" ]; then
-        MY_IP=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7}')
-    fi
-    echo "Device IP: $MY_IP"
-
-    if [ -z "$MY_IP" ]; then
-        echo "Could not determine local IP. Is Wi-Fi connected?"
-        return 1
-    fi
-
-    SUBNET=$(echo "$MY_IP" | cut -d '.' -f 1-3)
-    echo "Subnet: $SUBNET.*"
-
-    CANDIDATES="118 200 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 119 120 2 3 4 5 10 20 50 1"
-    
-    for h in $CANDIDATES; do
-        TEST_URL="http://$SUBNET.$h:8080"
-        echo "Probing: $TEST_URL..."
-        if curl -s -m 0.35 "$TEST_URL/api/info" 2>/dev/null | grep -q "server_ip"; then
-            echo "SUCCESS: Found Mirai ROM Hub at $TEST_URL!"
-            SERVER_URL="$TEST_URL"
-            if [ -f "$CONFIG_FILE" ]; then
-                sed -i "s|^LOCAL_URL=.*|LOCAL_URL=$TEST_URL|" "$CONFIG_FILE"
-                sed -i "s|^SERVER_URL=.*|SERVER_URL=$TEST_URL|" "$CONFIG_FILE"
+    rm -f /tmp/found_server.txt
+    if [ -x "$PAK_DIR/bin/autoscan.sh" ]; then
+        "$PAK_DIR/bin/autoscan.sh"
+        if [ -s /tmp/found_server.txt ]; then
+            FOUND_URL=$(tr -d '\r\n ' < /tmp/found_server.txt)
+            if [ -n "$FOUND_URL" ]; then
+                echo "SUCCESS: Found Server at $FOUND_URL!"
+                SERVER_URL="$FOUND_URL"
+                if [ -f "$CONFIG_FILE" ]; then
+                    sed -i "s|^LOCAL_URL=.*|LOCAL_URL=$FOUND_URL|" "$CONFIG_FILE"
+                    sed -i "s|^SERVER_URL=.*|SERVER_URL=$FOUND_URL|" "$CONFIG_FILE"
+                fi
+                show_msg "Found PC! Auto-Saved." 2
+                return 0
             fi
-            show_msg "Found PC at $SUBNET.$h! Auto-Saved." 2
-            return 0
         fi
-    done
+    fi
 
-    echo "Auto-scan finished: PC not found in priority range."
+    echo "Auto-scan finished: PC not found."
     return 1
 }
 
@@ -145,16 +132,17 @@ if [ $CONNECTED -eq 0 ] && [ -n "$ONLINE_URL" ]; then
 fi
 
 CATALOG_FILE="/tmp/catalog.txt"
+rm -f "$CATALOG_FILE"
+rm -rf /tmp/covers
+mkdir -p /tmp/covers
 
 if [ $CONNECTED -eq 0 ]; then
     echo "Notice: Could not connect at startup. Entering Store in Offline/Settings mode..."
     ACTIVE_URL="$SERVER_URL"
-    [ ! -f "$CATALOG_FILE" ] && touch "$CATALOG_FILE"
+    touch "$CATALOG_FILE"
 else
     echo "Connected successfully to: $ACTIVE_URL"
     # 3. Fetch Catalog before launching interactive UI
-    rm -f "$CATALOG_FILE"
-
     curl -L -s --connect-timeout 5 "$ACTIVE_URL/api/catalog/sync" -o "$CATALOG_FILE"
     TOTAL_GAMES=$(wc -l < "$CATALOG_FILE" 2>/dev/null || echo 0)
     echo "Fetched $TOTAL_GAMES games from server into $CATALOG_FILE"
