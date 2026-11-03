@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RUSHING THE TRANSLATION - Thai ROM Store</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800;900&family=Press+Start+2P&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --card-bg: #13141c;
+      --card-border: #232534;
+      --rush-red: #e11d48;
+      --rush-red-hover: #f43f5e;
+      --rush-red-glow: rgba(225, 29, 72, 0.4);
+      --gold: #f59e0b;
+      --cash-green: #22c55e;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Kanit', sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(rgba(225, 29, 72, 0.08) 1px, transparent 1px), radial-gradient(rgba(34, 197, 94, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      background-position: 0 0, 16px 16px;
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+    .pixel-font {
+      font-family: 'Press Start 2P', monospace;
+    }
+    header {
+      background: linear-gradient(180deg, #181924 0%, rgba(11, 12, 16, 0.96) 100%);
+      border-bottom: 2px solid #272a3d;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+      padding: 16px 35px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .mascot-logo {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 3px solid #e11d48;
+      box-shadow: 0 0 20px var(--rush-red-glow), 0 0 5px #f59e0b;
+      object-fit: cover;
+      transition: transform 0.25s ease;
+      cursor: pointer;
+    }
+    .mascot-logo:hover {
+      transform: scale(1.08) rotate(-4deg);
+    }
+    .header-titles h1 {
+      font-size: 21px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ff4d6d, #f59e0b, #22c55e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-titles p {
+      font-size: 13px;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .deadline-badge {
+      background: #dc2626;
+      color: white;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .wifi-pill {
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.15);
+    }
+    .wifi-dot {
+      width: 9px;
+      height: 9px;
+      background-color: var(--cash-green);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--cash-green);
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0.3; transform: scale(0.9); }
+    }
+    .container {
+      max-width: 1300px;
+      margin: 25px auto;
+      padding: 0 20px;
+    }
+    /* Quick Links Bar */
+    .quick-links {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .quick-link-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      text-decoration: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .quick-link-btn:hover {
+      border-color: #e11d48;
+      background: #1b1d28;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(225, 29, 72, 0.2);
+    }
+    /* Drag & Drop Zone */
+    .drop-card {
+      background: linear-gradient(135deg, rgba(25, 27, 38, 0.95), rgba(15, 16, 22, 0.95));
+      border: 2px dashed rgba(225, 29, 72, 0.5);
+      border-radius: 18px;
+      padding: 35px 20px;
+      text-align: center;
+      transition: all 0.25s;
+      margin-bottom: 35px;
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #e11d48, #f59e0b, #22c55e, #e11d48);
+      background-size: 200% 100%;
+      animation: rushBorder 3s linear infinite;
+    }
+    @keyframes rushBorder {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 200% 0%; }
+    }
+    .drop-card.dragover {
+      border-color: #f59e0b;
+      background: rgba(225, 29, 72, 0.08);
+      box-shadow: 0 0 35px var(--rush-red-glow);
+      transform: scale(1.01);
+    }
+    .drop-icon-banner {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: rgba(225, 29, 72, 0.15);
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      font-size: 36px;
+      margin-bottom: 12px;
+      animation: bounceSmall 2s infinite ease-in-out;
+    }
+    @keyframes bounceSmall {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .drop-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+    .drop-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 650px;
+      margin: 0 auto 20px;
+      line-height: 1.5;
+    }
+    .drop-inputs-row {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+    .file-select-btn {
+      background: #1e212f;
+      border: 1px solid #363a52;
+      color: var(--text);
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .file-select-btn:hover {
+      background: #2b2f42;
+      border-color: #f59e0b;
+      color: #fff;
+      transform: translateY(-2px);
+    }
+    input[type="file"] {
+      display: none;
+    }
+    /* Pending Upload Box */
+    .pending-box {
+      display: none;
+      background: #11131a;
+      border: 2px solid #e11d48;
+      border-radius: 14px;
+      padding: 22px;
+      max-width: 720px;
+      margin: 25px auto 0;
+      text-align: left;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .pending-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .cover-preview {
+      width: 75px;
+      height: 95px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #1e212f;
+      border: 2px solid #e11d48;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .pending-fields {
+      flex: 1;
+    }
+    .field-input, .field-select {
+      width: 100%;
+      background: #1a1c27;
+      border: 1px solid #363a52;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-input:focus, .field-select:focus {
+      border-color: #e11d48;
+      box-shadow: 0 0 10px var(--rush-red-glow);
+    }
+    .btn-submit {
+      background: linear-gradient(135deg, #e11d48, #be123c);
+      color: white;
+      border: none;
+      padding: 11px 28px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 18px var(--rush-red-glow);
+      transition: all 0.2s;
+    }
+    .btn-submit:hover {
+      background: #f43f5e;
+      transform: translateY(-2px);
+    }
+    /* Catalog Header & Filters */
+    .catalog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 22px;
+    }
+    .catalog-title {
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 7px 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn.active {
+      background: #e11d48;
+      color: white;
+      border-color: #e11d48;
+      box-shadow: 0 2px 10px var(--rush-red-glow);
+    }
+    .filter-btn:hover:not(.active) {
+      border-color: #e11d48;
+      color: #fff;
+    }
+    .search-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      width: 230px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus {
+      border-color: #e11d48;
+    }
+    /* Games Grid */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .game-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.25s;
+      position: relative;
+    }
+    .game-card:hover {
+      border-color: #e11d48;
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(225, 29, 72, 0.2);
+    }
+    .game-cover-wrap {
+      width: 100%;
+      height: 180px;
+      background: #090a0f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .game-cover {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #07080c;
+    }
+    .no-cover {
+      font-size: 42px;
+      color: #2b2e42;
+    }
+    .badge-thai {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(34, 197, 94, 0.95);
+      color: #052e16;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+    }
+    .badge-orig {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(30, 41, 59, 0.92);
+      color: #cbd5e1;
+      border: 1px solid #475569;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-system {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+    .game-body {
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      justify-content: space-between;
+    }
+    .game-name {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 8px;
+      word-break: break-word;
+      color: #f1f5f9;
+    }
+    .game-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .game-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-action {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-dl {
+      background: #1c1e2b;
+      color: #cbd5e1;
+      border-color: #2f334a;
+    }
+    .btn-dl:hover {
+      background: #e11d48;
+      border-color: #e11d48;
+      color: white;
+    }
+    .btn-del {
+      background: rgba(239, 68, 68, 0.1);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.25);
+      max-width: 38px;
+    }
+    .btn-del:hover {
+      background: #dc2626;
+      color: white;
+    }
+    #toast {
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      background: #181924;
+      color: white;
+      padding: 14px 26px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      border-left: 5px solid #e11d48;
+      display: none;
+      z-index: 9999;
+      font-size: 14px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-group">
+      <img src="/static/logo.png" alt="Rushing Translation" class="mascot-logo" title="Rushing the translation like desperate for cash!">
+      <div class="header-titles">
+        <h1>
+          <span>⚡ RUSHING THE TRANSLATION</span>
+        </h1>
+        <p>
+          <span class="deadline-badge">DEADLINE: NOW!!!</span>
+          <span>คลังเกมแปลไทยไฟลุกสำหรับ TrimUI Smart Pro</span>
+        </p>
+      </div>
+    </div>
+    <div id="wifiPill" class="wifi-pill">
+      <div class="wifi-dot"></div>
+      <span id="serverIpText">กำลังตรวจ IP เครื่อง...</span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Quick Links -->
+    <div class="quick-links">
+      <span style="font-size: 13px; color: var(--text-muted); font-weight: 500;">แหล่งทรัพยากร:</span>
+      <a href="https://thairomdb.pages.dev/#/?system=PSP" target="_blank" class="quick-link-btn">
+        <span>🎨</span> <b>ThaiRomDB</b> (คลังรูปปกภาษาไทย)
+      </a>
+      <a href="https://www.nonplae.com/" target="_blank" class="quick-link-btn">
+        <span>🗡️</span> <b>Nonplae</b> (เกมแปลไทย)
+      </a>
+      <a href="https://memorycardth.com/" target="_blank" class="quick-link-btn">
+        <span>💾</span> <b>MemoryCardTH</b> (Patch & ROM)
+      </a>
+    </div>
+
+    <!-- Drag & Drop Zone -->
+    <div class="drop-card" id="dropCard">
+      <div class="drop-icon-banner">🔥</div>
+      <div class="drop-title">TRANSLATION IN PROGRESS: ลากไฟล์ ROM + รูปปกมาโยนที่นี่!</div>
+      <div class="drop-subtitle">
+        ระบบจะเปลี่ยนชื่อรูปปกให้ตรงกับ ROM 100% แปลงเป็น PNG และจัดเข้าโฟลเดอร์สำหรับ TrimUI NextUI ให้ทันที รองรับ (.gba, .chd, .iso, .zip, .png, .jpg)
+      </div>
+
+      <div class="drop-inputs-row">
+        <label class="file-select-btn">
+          <span>📁</span> เลือกไฟล์ ROM
+          <input type="file" id="romInput" accept=".gba,.iso,.chd,.pbp,.nds,.nes,.sfc,.smc,.md,.bin,.zip">
+        </label>
+        <label class="file-select-btn">
+          <span>🖼️</span> เลือกรูปปก (Box Art)
+          <input type="file" id="coverInput" accept="image/*">
+        </label>
+      </div>
+
+      <!-- Pending Upload Details -->
+      <div class="pending-box" id="pendingBox">
+        <div class="pending-row">
+          <img id="coverPreviewImg" class="cover-preview" src="" alt="Cover Preview" style="display:none;">
+          <div class="pending-fields">
+            <label style="font-size:12px; color:var(--text-muted); margin-bottom:4px; display:block;">ชื่อเกม:</label>
+            <input type="text" id="customNameInput" class="field-input" placeholder="ชื่อเกม...">
+            <label style="font-size:12px; color:var(--text-muted); margin-bottom:4px; display:block;">ระบบเครื่อง:</label>
+            <select id="systemSelect" class="field-select">
+              <option value="Game Boy Advance (GBA)">Game Boy Advance (GBA)</option>
+              <option value="Sony PlayStation (PS)">Sony PlayStation (PS / PSX)</option>
+              <option value="Sony PlayStation Portable (PSP)">Sony PlayStation Portable (PSP)</option>
+              <option value="Nintendo DS (NDS)">Nintendo DS (NDS)</option>
+              <option value="Nintendo Entertainment System (FC)">Nintendo / Famicom (FC)</option>
+              <option value="Super Nintendo Entertainment System (SFC)">Super Famicom (SFC)</option>
+              <option value="Sega Genesis (MD)">Sega Genesis / Mega Drive (MD)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="file-select-btn" onclick="cancelPending()">ยกเลิก</button>
+          <button type="button" class="btn-submit" id="btnUpload" onclick="submitUpload()">
+            <span>⚡</span> บันทึกเข้าคลังพร้อมโหลด!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Catalog Section -->
+    <div class="catalog-header">
+      <div class="catalog-title">
+        <span>🎮 คลังเกมใน Store</span>
+        <span style="font-size:14px; color:#e11d48; background:rgba(225,29,72,0.15); padding:2px 10px; border-radius:999px; border:1px solid rgba(225,29,72,0.3);" id="totalCount">0</span>
+      </div>
+      <div class="filter-group">
+        <button class="filter-btn active" onclick="setFilter('ALL')">ทั้งหมด</button>
+        <button class="filter-btn" onclick="setFilter('THAI')">🇹🇭 แปลไทย</button>
+        <button class="filter-btn" onclick="setFilter('ORIG')">📦 ต้นฉบับ</button>
+        <button class="filter-btn" onclick="setFilter('GBA')">GBA</button>
+        <button class="filter-btn" onclick="setFilter('PS')">PSX</button>
+        <button class="filter-btn" onclick="setFilter('PSP')">PSP</button>
+        <button class="filter-btn" onclick="setFilter('NDS')">NDS</button>
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 ค้นหาชื่อเกม..." oninput="renderGames()">
+      </div>
+    </div>
+
+    <!-- Games Grid -->
+    <div class="games-grid" id="gamesGrid">
+      <!-- Cards rendered here -->
+    </div>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    let gamesList = [];
+    let currentFilter = 'ALL';
+    let selectedRomFile = null;
+    let selectedCoverFile = null;
+
+    async function init() {
+      try {
+        const infoRes = await fetch('/api/info');
+        const info = await infoRes.json();
+        document.getElementById('serverIpText').innerText = `TrimUI Wi-Fi: http://${info.server_ip}:${info.port}`;
+      } catch (e) {
+        console.error(e);
+      }
+      loadCatalog();
+    }
+
+    async function loadCatalog() {
+      try {
+        const res = await fetch('/api/catalog');
+        const data = await res.json();
+        gamesList = data.games || [];
+        document.getElementById('totalCount').innerText = `${gamesList.length} เกม`;
+        renderGames();
+      } catch (e) {
+        showToast('ไม่สามารถโหลด Catalog ได้', true);
+      }
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', 
+          (filter === 'ALL' && btn.innerText === 'ทั้งหมด') || 
+          (filter === 'THAI' && btn.innerText.includes('แปลไทย')) ||
+          (filter === 'ORIG' && btn.innerText.includes('ต้นฉบับ')) ||
+          btn.innerText.includes(filter)
+        );
+      });
+      renderGames();
+    }
+
+    function renderGames() {
+      const grid = document.getElementById('gamesGrid');
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      const filtered = gamesList.filter(g => {
+        if (query && !g.name.toLowerCase().includes(query)) return false;
+        if (currentFilter === 'THAI' && !g.is_thai) return false;
+        if (currentFilter === 'ORIG' && g.is_thai) return false;
+        if (currentFilter === 'GBA' && !g.system.includes('GBA')) return false;
+        if (currentFilter === 'PS' && !g.system.includes('PlayStation (PS)')) return false;
+        if (currentFilter === 'PSP' && !g.system.includes('PSP')) return false;
+        if (currentFilter === 'NDS' && !g.system.includes('NDS')) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 50px;">ไม่พบรายการเกมในหมวดนี้</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(g => `
+        <div class="game-card">
+          <div class="game-cover-wrap">
+            ${g.has_cover 
+              ? `<img src="${g.cover_url}" class="game-cover" loading="lazy" alt="${g.name}">` 
+              : `<div class="no-cover">🎮</div>`}
+            ${g.is_thai 
+              ? `<div class="badge-thai">🇹🇭 แปลไทย</div>` 
+              : `<div class="badge-orig">📦 ต้นฉบับ</div>`}
+            <div class="badge-system">${g.system_short || 'ROM'}</div>
+          </div>
+          <div class="game-body">
+            <div>
+              <div class="game-name" title="${g.name}">${g.name}</div>
+              <div class="game-meta">
+                <span>${g.size_mb} MB</span>
+                <span>${g.system}</span>
+              </div>
+            </div>
+            <div class="game-actions">
+              <a href="${g.rom_url}" class="btn-action btn-dl" download>⬇️ โหลด ROM</a>
+              ${g.has_cover ? `<a href="${g.cover_url}" class="btn-action btn-dl" download target="_blank">🖼️ ปก</a>` : ''}
+              <button class="btn-action btn-del" title="ลบออกจากสโตร์" onclick="deleteGame('${g.system}', '${g.filename}')">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Drag & Drop
+    const dropCard = document.getElementById('dropCard');
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropCard.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropCard.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropCard.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropCard.classList.remove('dragover');
+      });
+    });
+
+    dropCard.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer.files);
+      handleDroppedFiles(files);
+    });
+
+    document.getElementById('romInput').addEventListener('change', (e) => {
+      if (e.target.files.length) handleDroppedFiles([e.target.files[0]]);
+    });
+
+    document.getElementById('coverInput').addEventListener('change', (e) => {
+      if (e.target.files.length) handleDroppedFiles([e.target.files[0]]);
+    });
+
+    function handleDroppedFiles(files) {
+      files.forEach(f => {
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        if (['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
+          selectedCoverFile = f;
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            const img = document.getElementById('coverPreviewImg');
+            img.src = re.target.result;
+            img.style.display = 'block';
+          };
+          reader.readAsDataURL(f);
+        } else {
+          selectedRomFile = f;
+          const stem = f.name.replace(/\.[^/.]+$/, "");
+          document.getElementById('customNameInput').value = stem;
+
+          const sel = document.getElementById('systemSelect');
+          if (ext === '.gba') sel.value = "Game Boy Advance (GBA)";
+          else if (['.iso', '.cso'].includes(ext)) sel.value = "Sony PlayStation Portable (PSP)";
+          else if (['.chd', '.pbp', '.bin'].includes(ext)) sel.value = "Sony PlayStation (PS)";
+          else if (ext === '.nds') sel.value = "Nintendo DS (NDS)";
+          else if (['.nes'].includes(ext)) sel.value = "Nintendo Entertainment System (FC)";
+          else if (['.sfc', '.smc'].includes(ext)) sel.value = "Super Nintendo Entertainment System (SFC)";
+          else if (['.md'].includes(ext)) sel.value = "Sega Genesis (MD)";
+        }
+      });
+
+      if (selectedRomFile) {
+        document.getElementById('pendingBox').style.display = 'block';
+      }
+    }
+
+    function cancelPending() {
+      selectedRomFile = null;
+      selectedCoverFile = null;
+      document.getElementById('pendingBox').style.display = 'none';
+      document.getElementById('coverPreviewImg').style.display = 'none';
+      document.getElementById('romInput').value = '';
+      document.getElementById('coverInput').value = '';
+    }
+
+    async function submitUpload() {
+      if (!selectedRomFile) {
+        showToast('กรุณาเลือกไฟล์ ROM ก่อนครับ', true);
+        return;
+      }
+
+      const btn = document.getElementById('btnUpload');
+      btn.innerText = '⚡ กำลังปั่นเข้าสโตร์...';
+      btn.disabled = true;
+
+      const formData = new FormData();
+      formData.append('rom', selectedRomFile);
+      if (selectedCoverFile) {
+        formData.append('cover', selectedCoverFile);
+      }
+      formData.append('custom_name', document.getElementById('customNameInput').value);
+      formData.append('system', document.getElementById('systemSelect').value);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          cancelPending();
+          loadCatalog();
+        } else {
+          showToast(data.error || 'เกิดข้อผิดพลาดในการบันทึก', true);
+        }
+      } catch (err) {
+        showToast('เกิดข้อผิดพลาดในการส่งข้อมูล: ' + err.message, true);
+      } finally {
+        btn.innerText = '⚡ บันทึกเข้าคลังพร้อมโหลด!';
+        btn.disabled = false;
+      }
+    }
+
+    async function deleteGame(system, filename) {
+      if (!confirm(`ต้องการลบ ${filename} ออกจากสโตร์ใช่หรือไม่?`)) return;
+      const formData = new FormData();
+      formData.append('system', system);
+      formData.append('filename', filename);
+
+      try {
+        const res = await fetch('/api/delete', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          loadCatalog();
+        } else {
+          showToast(data.error || 'ลบไม่สำเร็จ', true);
+        }
+      } catch (e) {
+        showToast('เกิดข้อผิดพลาด: ' + e.message, true);
+      }
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.borderLeftColor = isError ? '#ef4444' : '#22c55e';
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    init();
+  </script>
+</body>
+</html>

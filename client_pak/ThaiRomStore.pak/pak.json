@@ -1,0 +1,14 @@
+{
+  "name": "Thai ROM Store",
+  "version": "v1.2.4",
+  "type": "TOOL",
+  "description": "Download Thai ROMs & Box Arts over Wi-Fi from Mirai ROM Hub",
+  "author": "Mirai HUB",
+  "platforms": [
+    "tg5040",
+    "tg5050",
+    "h700",
+    "brick",
+    "brickpro"
+  ]
+}

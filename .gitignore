@@ -1,0 +1,69 @@
+# ==========================================
+# STRICT COPYRIGHT PROTECTION: NO ROMS OR ART
+# ==========================================
+# Exclude all game backup files
+*.gba
+*.nds
+*.iso
+*.chd
+*.zip
+*.7z
+*.rar
+*.bin
+*.cue
+*.img
+*.sfc
+*.smc
+*.nes
+*.pbp
+*.cso
+*.rom
+*.gcm
+
+# Exclude storage contents except directory structure
+storage/Roms/**
+!storage/Roms/
+!storage/Roms/**/
+!storage/Roms/**/.gitkeep
+
+# Exclude all box art and media files
+**/.media/**
+!**/.media/
+!**/.media/.gitkeep
+
+# Temporary and partial downloads
+*.part
+
+# ==========================================
+# Runtime & Temporary Files
+# ==========================================
+*.log
+launch.log
+/tmp/
+catalog.txt
+found_server.txt
+curl_err.txt
+app_ver.json
+
+# ==========================================
+# Python & OS Artifacts
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# Local Development / Scratch Files
+# ==========================================
+test_*
+wrap_test*
+*.o
+*.obj
+clean_glyphs.py
+patch_filter.py
