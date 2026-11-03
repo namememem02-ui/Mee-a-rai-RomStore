@@ -10,6 +10,17 @@
 
 ---
 
+## ⬇️ ดาวน์โหลดโปรแกรมพร้อมใช้งาน (Direct Downloads)
+
+| แพ็กเกจ | ไฟล์ดาวน์โหลด | รายละเอียด |
+| :--- | :--- | :--- |
+| 📦 **ชุดรวมสมบูรณ์ (แนะนำ)** | [**Mee-a-rai-RomStore-v1.2.4-Complete.zip**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases/download/v1.2.4/Mee-a-rai-RomStore-v1.2.4-Complete.zip) | รวมฝั่ง PC (start_server.bat) + ฝั่งเครื่องเกม + ภาพคู่มือ ใช้งานได้ทันที |
+| 🎮 **เฉพาะแอพลงเครื่องเกม** | [**ThaiRomStore-TrimUI-v1.2.4.zip**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases/download/v1.2.4/ThaiRomStore-TrimUI-v1.2.4.zip) | แตกไฟล์แล้วก๊อปปี้โฟลเดอร์ Tools ลง MicroSD Card ได้ทันที |
+
+👉 หรือเลือกดูเวอร์ชันทั้งหมดได้ที่: [**GitHub Releases**](https://github.com/namememem02-ui/Mee-a-rai-RomStore/releases)
+
+---
+
 ## 📖 คู่มือสรุปขั้นตอนการใช้งาน (Visual Guide)
 
 ![Mee-a-rai RomStore Guide](docs/how_to_use.png)

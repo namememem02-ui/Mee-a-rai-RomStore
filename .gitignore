@@ -67,3 +67,4 @@ wrap_test*
 *.obj
 clean_glyphs.py
 patch_filter.py
+dist/
