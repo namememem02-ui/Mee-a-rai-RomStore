@@ -13,7 +13,9 @@ except ImportError:
     Image = None
 
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 app = Bottle()
 
@@ -65,6 +67,16 @@ def init_storage():
         media_path = sys_path / ".media"
         sys_path.mkdir(parents=True, exist_ok=True)
         media_path.mkdir(parents=True, exist_ok=True)
+
+def check_is_thai(filename):
+    name = filename.lower()
+    # Explicit Thai keywords
+    if any(k in name for k in ['thai', 'แปลไทย', 'nonplae', 'thaimod', 'auns555', 'memorycardth']):
+        return True
+    # Word boundary check for 'th' (not substring like Brea[th])
+    if re.search(r'[\(\[\_\-\s]th[\)\]\_\-\s\.]', name) or re.search(r'[\(\[\_\-\s]th$', name):
+        return True
+    return False
 
 @app.route('/')
 def index():

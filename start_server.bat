@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal
 title Mee-a-rai ROM Store - PC Server
 cd /d "%~dp0"
